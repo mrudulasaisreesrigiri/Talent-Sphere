@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Analytics | Talent Management Platform for Employee Performance and Career Growth{% endblock %}
+{% block header_title %}Admin Analytics Overview{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-7xl mx-auto space-y-6">
+  <!-- Stats Row -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="glass-card rounded-2xl p-5 border border-slate-800 flex items-center justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Total Users</p>
+        <h3 class="text-2xl font-extrabold text-white tracking-tight" id="stat-total-users">{{ analytics.total_users }}</h3>
+        <p class="text-[11px] text-slate-400 mt-1">Active learners & admins</p>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+        <i data-lucide="users" class="w-6 h-6"></i>
+      </div>
+    </div>
+
+    <div class="glass-card rounded-2xl p-5 border border-slate-800 flex items-center justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Study Plans</p>
+        <h3 class="text-2xl font-extrabold text-white tracking-tight" id="stat-total-study-plans">{{ analytics.total_study_plans }}</h3>
+        <p class="text-[11px] text-slate-400 mt-1">Curriculum tracks</p>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+        <i data-lucide="book-open" class="w-6 h-6"></i>
+      </div>
+    </div>
+
+    <div class="glass-card rounded-2xl p-5 border border-slate-800 flex items-center justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Total Exams</p>
+        <h3 class="text-2xl font-extrabold text-white tracking-tight" id="stat-total-exams">{{ analytics.total_exams }}</h3>
+        <p class="text-[11px] text-slate-400 mt-1">Created & published</p>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+        <i data-lucide="graduation-cap" class="w-6 h-6"></i>
+      </div>
+    </div>
+
+    <div class="glass-card rounded-2xl p-5 border border-slate-800 flex items-center justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Students Attempted</p>
+        <h3 class="text-2xl font-extrabold text-white tracking-tight" id="stat-students-attempted">{{ analytics.students_attempted }}</h3>
+        <p class="text-[11px] text-slate-400 mt-1">Learners submitted exams</p>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+        <i data-lucide="award" class="w-6 h-6"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Score Breakdown Row -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="glass-card p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase text-slate-400">Average Score</p>
+        <h4 class="text-3xl font-extrabold text-indigo-400 mt-1">{{ analytics.average_score }}%</h4>
+      </div>
+      <i data-lucide="trending-up" class="w-8 h-8 text-indigo-400/50"></i>
+    </div>
+
+    <div class="glass-card p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase text-slate-400">Highest Score</p>
+        <h4 class="text-3xl font-extrabold text-emerald-400 mt-1">{{ analytics.highest_score }}%</h4>
+      </div>
+      <i data-lucide="award" class="w-8 h-8 text-emerald-400/50"></i>
+    </div>
+
+    <div class="glass-card p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase text-slate-400">Lowest Score</p>
+        <h4 class="text-3xl font-extrabold text-amber-400 mt-1">{{ analytics.lowest_score }}%</h4>
+      </div>
+      <i data-lucide="bar-chart-3" class="w-8 h-8 text-amber-400/50"></i>
+    </div>
+  </div>
+
+  <!-- Charts Row -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="glass-panel p-5 rounded-2xl border border-slate-800">
+      <h3 class="font-bold text-white text-sm mb-4">Exam Performance Breakdown</h3>
+      <div class="h-64 relative flex items-center justify-center">
+        <canvas id="performancePieChart"></canvas>
+      </div>
+    </div>
+
+    <div class="glass-panel p-5 rounded-2xl border border-slate-800">
+      <h3 class="font-bold text-white text-sm mb-4">Exam Attempts & Average Score</h3>
+      <div class="h-64 relative flex items-center justify-center">
+        <canvas id="examTrendsBarChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const analyticsData = {{ analytics | tojson }};
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const isLight = document.documentElement.classList.contains('light');
+    const labelColor = isLight ? '#475569' : '#94a3b8';
+    const gridColor = isLight ? '#e2e8f0' : 'rgba(255, 255, 255, 0.05)';
+
+    // Pie Chart
+    const pieCtx = document.getElementById('performancePieChart');
+    if (pieCtx && analyticsData.performance_trends) {
+      new Chart(pieCtx, {
+        type: 'doughnut',
+        data: {
+          labels: analyticsData.performance_trends.map(p => p.name),
+          datasets: [{
+            data: analyticsData.performance_trends.map(p => p.value),
+            backgroundColor: ['#10b981', '#f43f5e', '#6366f1', '#06b6d4'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: labelColor } } }
+        }
+      });
+    }
+
+    // Bar Chart
+    const barCtx = document.getElementById('examTrendsBarChart');
+    if (barCtx && analyticsData.exam_trends) {
+      new Chart(barCtx, {
+        type: 'bar',
+        data: {
+          labels: analyticsData.exam_trends.map(e => e.exam_name),
+          datasets: [
+            { label: 'Attempts', data: analyticsData.exam_trends.map(e => e.attempts), backgroundColor: '#6366f1' },
+            { label: 'Avg Score (%)', data: analyticsData.exam_trends.map(e => e.avg_score), backgroundColor: '#06b6d4' }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { ticks: { color: labelColor }, grid: { color: gridColor } },
+            y: { ticks: { color: labelColor }, grid: { color: gridColor } }
+          },
+          plugins: { legend: { labels: { color: labelColor } } }
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}

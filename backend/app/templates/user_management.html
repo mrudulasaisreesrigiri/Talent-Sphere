@@ -1,0 +1,448 @@
+{% extends "base.html" %}
+
+{% block title %}User Management | Talent Management Platform for Employee Performance and Career Growth{% endblock %}
+{% block header_title %}Enterprise User Management{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-7xl mx-auto space-y-6">
+  <!-- Controls Header -->
+  <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div class="relative w-full sm:w-80">
+      <i data-lucide="search" class="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5"></i>
+      <input type="text" id="user-search-input" oninput="filterUsersTable()" placeholder="Search users by name or email..." class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+    </div>
+
+    <button onclick="openModal('create-user-modal')" class="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 cursor-pointer">
+      <i data-lucide="user-plus" class="w-4 h-4"></i>
+      <span>Create New User</span>
+    </button>
+  </div>
+
+  <!-- User Table -->
+  <div class="glass-panel rounded-2xl border border-slate-800 overflow-hidden">
+    {% if users | length == 0 %}
+    <div class="glass-panel rounded-2xl p-10 text-center flex flex-col items-center justify-center border border-slate-800/80 my-4">
+      <div class="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-400 mb-4 shadow-inner">
+        <i data-lucide="users" class="w-8 h-8 text-indigo-400"></i>
+      </div>
+      <h3 class="font-bold text-white text-base mb-1">No Users Found</h3>
+      <p class="text-xs text-slate-400 max-w-sm mb-6 leading-relaxed">No registered user accounts found in the database.</p>
+    </div>
+    {% else %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs" id="users-table">
+        <thead class="bg-slate-900/80 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
+          <tr>
+            <th class="px-6 py-4">User Details</th>
+            <th class="px-6 py-4">Role</th>
+            <th class="px-6 py-4">Account Status</th>
+            <th class="px-6 py-4">Created Date</th>
+            <th class="px-6 py-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800/60" id="users-tbody">
+          {% for u in users %}
+          <tr class="hover:bg-slate-800/40 transition-colors user-row" data-name="{{ u.full_name.lower() }}" data-email="{{ u.email.lower() }}">
+            <td class="px-6 py-4">
+              <div>
+                <p class="font-bold text-white">{{ u.full_name }}</p>
+                <p class="text-slate-400 text-[11px]">{{ u.email }}</p>
+              </div>
+            </td>
+            <td class="px-6 py-4">
+              <span class="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase {% if u.role.value == 'ADMIN' %}bg-amber-500/20 text-amber-300 border border-amber-500/30{% else %}bg-emerald-500/20 text-emerald-300 border border-emerald-500/30{% endif %}">
+                {{ u.role.value }}
+              </span>
+            </td>
+            <td class="px-6 py-4">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold {% if u.is_active %}bg-emerald-500/20 text-emerald-300{% else %}bg-rose-500/20 text-rose-300{% endif %}">
+                <i data-lucide="{% if u.is_active %}check-circle{% else %}x-circle{% endif %}" class="w-3 h-3"></i>
+                {{ 'Active' if u.is_active else 'Deactivated' }}
+              </span>
+            </td>
+            <td class="px-6 py-4 text-slate-400">
+              {{ u.created_at.strftime('%Y-%m-%d') if u.created_at else '' }}
+            </td>
+            <td class="px-6 py-4 text-right">
+              <div class="flex items-center justify-end gap-2">
+                <button onclick="openEditUserModal('{{ u.id }}', '{{ u.full_name }}', '{{ u.email }}', '{{ u.role.value }}', {{ 'true' if u.is_active else 'false' }})" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white cursor-pointer" title="Edit User">
+                  <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                </button>
+                <button onclick="openResetPasswordModal('{{ u.id }}', '{{ u.email }}')" class="p-1.5 rounded-lg bg-indigo-950 hover:bg-indigo-900 text-indigo-300 cursor-pointer" title="Reset Password">
+                  <i data-lucide="key-round" class="w-3.5 h-3.5"></i>
+                </button>
+                <button onclick="handleDeleteUser('{{ u.id }}', '{{ u.email }}')" class="p-1.5 rounded-lg bg-rose-950 hover:bg-rose-900 text-rose-300 cursor-pointer" title="Delete User">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Create User Modal -->
+<div id="create-user-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+  <div class="glass-panel w-full max-w-lg rounded-3xl border border-slate-700/80 p-6 shadow-2xl relative">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+      <h3 class="font-bold text-white text-base">Create New Enterprise User</h3>
+      <button onclick="closeModal('create-user-modal')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <form onsubmit="handleCreateUserSubmit(event)" class="space-y-4 text-xs">
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Full Name</label>
+        <input type="text" id="create-fullname" required placeholder="e.g. John Doe" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-indigo-500">
+      </div>
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Email Address</label>
+        <input type="email" id="create-email" required placeholder="e.g. user@talentsphere.com" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-indigo-500">
+      </div>
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Initial Password</label>
+        <input type="password" id="create-password" required placeholder="Enter initial password" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-indigo-500">
+      </div>
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Assigned Role</label>
+        <select id="create-role" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-indigo-500">
+          <option value="STUDENT">Student Learner</option>
+          <option value="ADMIN">System Administrator</option>
+        </select>
+      </div>
+      <button type="submit" id="create-user-submit-btn" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold cursor-pointer">
+        Create User Account
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Post-Creation "Send Mail" Modal -->
+<div id="user-created-success-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+  <div class="glass-panel w-full max-w-lg rounded-3xl border border-indigo-500/30 p-6 shadow-2xl relative space-y-5 text-xs">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+      <h3 class="font-bold text-white text-base">User Created Successfully</h3>
+      <button onclick="closeSuccessAndReload()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <div class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-start gap-3">
+      <i data-lucide="check-circle" class="w-5 h-5 text-emerald-400 shrink-0 mt-0.5"></i>
+      <div>
+        <h4 class="font-bold text-white text-sm">Account Created</h4>
+        <p class="text-slate-300 mt-1">
+          User <strong class="text-white" id="success-fullname"></strong> (<span class="text-indigo-300" id="success-email"></span>) was registered successfully.
+        </p>
+      </div>
+    </div>
+
+    <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+      <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Account Credentials Summary</p>
+      <div class="flex justify-between items-center py-1 border-b border-slate-800">
+        <span class="text-slate-400">Email:</span>
+        <span class="text-white font-mono font-bold" id="summary-email"></span>
+      </div>
+      <div class="flex justify-between items-center py-1 border-b border-slate-800">
+        <span class="text-slate-400">Initial Password:</span>
+        <span class="text-indigo-300 font-mono font-bold">••••••••</span>
+      </div>
+      <div class="flex justify-between items-center py-1">
+        <span class="text-slate-400">Assigned Role:</span>
+        <span class="text-emerald-400 font-bold uppercase" id="summary-role"></span>
+      </div>
+    </div>
+
+    <!-- Dynamic Status Message Container -->
+    <div id="email-status-box" class="hidden p-3.5 rounded-xl border text-xs flex items-center gap-2">
+      <i id="email-status-icon" data-lucide="check-circle" class="w-4 h-4 shrink-0"></i>
+      <span id="email-status-text"></span>
+    </div>
+
+    <div class="flex flex-col sm:flex-row items-center gap-3 pt-2">
+      <button
+        type="button"
+        id="send-mail-btn"
+        onclick="sendCreatedUserMail()"
+        class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+      >
+        <i data-lucide="mail" class="w-4 h-4"></i>
+        <span id="send-mail-btn-text">Send Mail</span>
+      </button>
+
+      <button
+        type="button"
+        onclick="closeSuccessAndReload()"
+        class="w-full sm:w-auto px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold text-xs transition-colors cursor-pointer"
+      >
+        Done
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit User Modal -->
+<div id="edit-user-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+  <div class="glass-panel w-full max-w-lg rounded-3xl border border-slate-700/80 p-6 shadow-2xl relative">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+      <h3 class="font-bold text-white text-base">Edit User Details</h3>
+      <button onclick="closeModal('edit-user-modal')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <form onsubmit="handleEditUserSubmit(event)" class="space-y-4 text-xs">
+      <input type="hidden" id="edit-user-id">
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Full Name</label>
+        <input type="text" id="edit-fullname" required class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white">
+      </div>
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Role</label>
+        <select id="edit-role" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white">
+          <option value="STUDENT">Student Learner</option>
+          <option value="ADMIN">System Administrator</option>
+        </select>
+      </div>
+      <div>
+        <label class="flex items-center gap-2 text-slate-300 font-semibold cursor-pointer">
+          <input type="checkbox" id="edit-active" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-indigo-600">
+          <span>Account Active Status</span>
+        </label>
+      </div>
+      <button type="submit" class="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold cursor-pointer">Save User Changes</button>
+    </form>
+  </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div id="reset-password-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+  <div class="glass-panel w-full max-w-lg rounded-3xl border border-slate-700/80 p-6 shadow-2xl relative">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+      <h3 class="font-bold text-white text-base">Reset User Password</h3>
+      <button onclick="closeModal('reset-password-modal')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <form onsubmit="handleResetPasswordSubmit(event)" class="space-y-4 text-xs">
+      <input type="hidden" id="reset-user-id">
+      <p class="text-slate-400" id="reset-user-email-label"></p>
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">New Password</label>
+        <input type="password" id="reset-new-password" required placeholder="Enter new password" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white">
+      </div>
+      <button type="submit" class="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold cursor-pointer">Reset Password</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let latestCreatedUserId = null;
+  let latestCreatedUserEmail = null;
+  let latestCreatedUserPassword = null;
+  let latestCreatedUserName = null;
+  let latestCreatedUserRole = null;
+  let isSendingCredentialsMail = false;
+
+  function filterUsersTable() {
+    const q = document.getElementById('user-search-input').value.toLowerCase();
+    const rows = document.querySelectorAll('.user-row');
+    rows.forEach(r => {
+      const name = r.dataset.name || '';
+      const email = r.dataset.email || '';
+      if (name.includes(q) || email.includes(q)) {
+        r.classList.remove('hidden');
+      } else {
+        r.classList.add('hidden');
+      }
+    });
+  }
+
+  async function handleCreateUserSubmit(e) {
+    e.preventDefault();
+    const fullName = document.getElementById('create-fullname').value;
+    const email = document.getElementById('create-email').value;
+    const password = document.getElementById('create-password').value;
+    const role = document.getElementById('create-role').value;
+
+    try {
+      const res = await apiFetch('/users', {
+        method: 'POST',
+        body: JSON.stringify({
+          full_name: fullName,
+          email: email,
+          password: password,
+          role: role,
+          is_active: true
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.detail || 'Error creating user');
+        return;
+      }
+
+      // Store newly created user details for the Send Mail action
+      latestCreatedUserId = data.id;
+      latestCreatedUserEmail = data.email;
+      latestCreatedUserPassword = password;
+      latestCreatedUserName = data.full_name;
+      latestCreatedUserRole = data.role;
+
+      // Populate Success Modal
+      document.getElementById('success-fullname').innerText = data.full_name;
+      document.getElementById('success-email').innerText = data.email;
+      document.getElementById('summary-email').innerText = data.email;
+      document.getElementById('summary-role').innerText = data.role;
+
+      // Reset email status box
+      const statusBox = document.getElementById('email-status-box');
+      if (statusBox) statusBox.classList.add('hidden');
+      const sendBtnText = document.getElementById('send-mail-btn-text');
+      if (sendBtnText) sendBtnText.innerText = 'Send Mail';
+
+      // Close create modal and open Success & Send Mail modal
+      closeModal('create-user-modal');
+      openModal('user-created-success-modal');
+
+      if (window.lucide) lucide.createIcons();
+    } catch (err) {
+      alert('Error creating user');
+    }
+  }
+
+  async function sendCreatedUserMail() {
+    if (!latestCreatedUserId || !latestCreatedUserPassword || isSendingCredentialsMail) return;
+
+    isSendingCredentialsMail = true;
+    const sendBtn = document.getElementById('send-mail-btn');
+    const sendBtnText = document.getElementById('send-mail-btn-text');
+    const statusBox = document.getElementById('email-status-box');
+    const statusText = document.getElementById('email-status-text');
+    const statusIcon = document.getElementById('email-status-icon');
+
+    if (sendBtnText) sendBtnText.innerText = 'Sending Mail...';
+    if (sendBtn) sendBtn.disabled = true;
+    if (statusBox) statusBox.classList.add('hidden');
+
+    try {
+      const res = await apiFetch(`/users/${latestCreatedUserId}/send-credentials`, {
+        method: 'POST',
+        body: JSON.stringify({
+          initial_password: latestCreatedUserPassword
+        })
+      });
+
+      const data = await res.json();
+      if (statusBox && statusText) {
+        statusBox.classList.remove('hidden');
+        if (res.ok) {
+          statusBox.className = 'p-3.5 rounded-xl border text-xs flex items-center gap-2 bg-emerald-950/60 border-emerald-500/40 text-emerald-300';
+          statusText.innerText = data.message || `Login credentials sent successfully to ${latestCreatedUserEmail}.`;
+          if (sendBtnText) sendBtnText.innerText = 'Send Mail Again';
+        } else {
+          statusBox.className = 'p-3.5 rounded-xl border text-xs flex items-center gap-2 bg-rose-950/60 border-rose-500/40 text-rose-300';
+          statusText.innerText = data.detail || `Failed to send email to ${latestCreatedUserEmail}.`;
+          if (sendBtnText) sendBtnText.innerText = 'Send Mail';
+        }
+      }
+    } catch (err) {
+      if (statusBox && statusText) {
+        statusBox.classList.remove('hidden');
+        statusBox.className = 'p-3.5 rounded-xl border text-xs flex items-center gap-2 bg-rose-950/60 border-rose-500/40 text-rose-300';
+        statusText.innerText = `Failed to send email to ${latestCreatedUserEmail}.`;
+      }
+      if (sendBtnText) sendBtnText.innerText = 'Send Mail';
+    } finally {
+      isSendingCredentialsMail = false;
+      if (sendBtn) sendBtn.disabled = false;
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+
+  function closeSuccessAndReload() {
+    closeModal('user-created-success-modal');
+    window.location.reload();
+  }
+
+  function openEditUserModal(id, name, email, role, isActive) {
+    document.getElementById('edit-user-id').value = id;
+    document.getElementById('edit-fullname').value = name;
+    document.getElementById('edit-role').value = role;
+    document.getElementById('edit-active').checked = isActive;
+    openModal('edit-user-modal');
+  }
+
+  async function handleEditUserSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('edit-user-id').value;
+    try {
+      const res = await apiFetch(`/users/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          full_name: document.getElementById('edit-fullname').value,
+          role: document.getElementById('edit-role').value,
+          is_active: document.getElementById('edit-active').checked
+        })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.detail || 'Error updating user');
+        return;
+      }
+      window.location.reload();
+    } catch (err) {
+      alert('Error updating user');
+    }
+  }
+
+  function openResetPasswordModal(id, email) {
+    document.getElementById('reset-user-id').value = id;
+    document.getElementById('reset-user-email-label').innerText = `Resetting password for: ${email}`;
+    openModal('reset-password-modal');
+  }
+
+  async function handleResetPasswordSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('reset-user-id').value;
+    const pwd = document.getElementById('reset-new-password').value;
+    try {
+      const res = await apiFetch(`/users/${id}/reset-password`, {
+        method: 'POST',
+        body: JSON.stringify({ new_password: pwd })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.detail || 'Error resetting password');
+        return;
+      }
+      alert('Password reset successfully');
+      closeModal('reset-password-modal');
+    } catch (err) {
+      alert('Error resetting password');
+    }
+  }
+
+  async function handleDeleteUser(id, email) {
+    if (confirm(`Are you sure you want to delete user ${email}?`)) {
+      try {
+        const res = await apiFetch(`/users/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const data = await res.json();
+          alert(data.detail || 'Error deleting user');
+          return;
+        }
+        window.location.reload();
+      } catch (err) {
+        alert('Error deleting user');
+      }
+    }
+  }
+</script>
+{% endblock %}

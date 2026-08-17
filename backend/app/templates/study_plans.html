@@ -1,0 +1,1265 @@
+{% extends "base.html" %}
+
+{% block title %}Study Plans | Talent Management Platform for Employee Performance and Career Growth{% endblock %}
+{% block header_title %}Structured Learning Study Plans{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-7xl mx-auto space-y-6 pb-20">
+  <!-- Top Action Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h3 class="font-bold text-white text-base">Curated Study Plans</h3>
+      <p class="text-xs text-slate-400">Structured 6-Week curriculum roadmaps (Sequential Progression System)</p>
+    </div>
+
+    {% if current_user and current_user.role.value == 'ADMIN' %}
+    <button onclick="openModal('create-plan-modal')" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-indigo-600/20 transition-all cursor-pointer">
+      <i data-lucide="plus-circle" class="w-4 h-4"></i>
+      <span>Create Study Plan</span>
+    </button>
+    {% endif %}
+  </div>
+
+  <!-- Global Admin AI Notification Toast Banner -->
+  <div id="ai-status-toast" class="hidden p-4 rounded-2xl bg-emerald-950/60 border border-emerald-500/30 flex items-center justify-between text-xs text-emerald-200">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+        <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <p id="toast-title" class="font-bold text-white text-sm">Week Exam Generated Successfully</p>
+        <p id="toast-message" class="text-emerald-300 text-[11px]">AI has generated questions for all 4 lessons.</p>
+      </div>
+    </div>
+    <button onclick="document.getElementById('ai-status-toast').classList.add('hidden')" class="text-emerald-400 hover:text-white p-1">
+      <i data-lucide="x" class="w-4 h-4"></i>
+    </button>
+  </div>
+
+  <!-- Study Plans Container -->
+  <div class="glass-panel rounded-2xl border border-slate-800 overflow-hidden p-5">
+    {% if study_plans | length == 0 %}
+    <div class="p-10 text-center flex flex-col items-center justify-center border border-slate-800/80 rounded-2xl my-4">
+      <div class="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-400 mb-4 shadow-inner">
+        <i data-lucide="book-open" class="w-8 h-8 text-indigo-400"></i>
+      </div>
+      <h3 class="font-bold text-white text-base mb-1">No Study Plans Available</h3>
+      <p class="text-xs text-slate-400 max-w-sm mb-6 leading-relaxed">
+        {% if current_user and current_user.role.value == 'ADMIN' %}
+        No study plans have been created yet. Click 'Create Study Plan' to upload Day 1–4 PDFs and generate your first study plan.
+        {% else %}
+        No study plans have been created yet. Please check back later after an administrator creates a study plan.
+        {% endif %}
+      </p>
+      {% if current_user and current_user.role.value == 'ADMIN' %}
+      <button onclick="openModal('create-plan-modal')" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-2 cursor-pointer">
+        <i data-lucide="plus-circle" class="w-4 h-4"></i> Create Study Plan
+      </button>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="space-y-4">
+      {% for plan in study_plans %}
+      <div id="plan-card-{{ plan.id }}" class="glass-card rounded-2xl border border-slate-800 hover:border-indigo-500/40 transition-all shadow-lg overflow-hidden">
+        <!-- Card Summary Header -->
+        <div class="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer" onclick="togglePlanDetails('{{ plan.id }}')">
+          <div class="space-y-1.5 flex-1">
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                {{ plan.category or 'General' }}
+              </span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-semibold {% if plan.status == 'ACTIVE' %}bg-emerald-500/20 text-emerald-300 border border-emerald-500/30{% else %}bg-slate-800 text-slate-400 border border-slate-700{% endif %}">
+                {{ plan.status }}
+              </span>
+              <span class="px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                6 Weeks • Sequential Progression
+              </span>
+            </div>
+            <h4 class="font-bold text-white text-base truncate">{{ plan.title }}</h4>
+            <p class="text-xs text-slate-300 line-clamp-2 leading-relaxed">
+              {{ plan.description or 'Structured 6-Week study plan curriculum with PDF learning materials.' }}
+            </p>
+          </div>
+
+          <div class="flex items-center gap-3 shrink-0">
+            <button type="button" class="px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer">
+              <i data-lucide="layers" class="w-3.5 h-3.5 text-indigo-400"></i>
+              <span>Curriculum & Progression</span>
+              <i data-lucide="chevron-down" id="chevron-{{ plan.id }}" class="w-4 h-4 text-slate-400 transition-transform"></i>
+            </button>
+
+            {% if current_user and current_user.role.value == 'ADMIN' %}
+            <div class="flex items-center gap-1 border-l border-slate-800 pl-3">
+              <button onclick="event.stopPropagation(); openEditPlanModal('{{ plan.id }}', '{{ plan.title | escape }}', '{{ plan.description | escape }}', '{{ plan.category | escape }}', '{{ plan.status }}')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer" title="Edit Metadata">
+                <i data-lucide="edit-3" class="w-4 h-4"></i>
+              </button>
+              <button onclick="event.stopPropagation(); handleDeletePlan('{{ plan.id }}', '{{ plan.title | escape }}')" class="p-2 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 cursor-pointer" title="Delete Plan">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- 6-Week Curriculum & Lesson Container -->
+        <div id="plan-details-{{ plan.id }}" class="hidden border-t border-slate-800/80 bg-slate-950/60 p-5 space-y-5">
+          <h5 class="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="shield-check" class="w-4 h-4"></i>
+            Sequential 6-Week Learning Progression Roadmap
+          </h5>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="weeks-container-{{ plan.id }}">
+            {% for week in plan.weeks %}
+            <div id="week-block-{{ week.id }}" class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 shadow-inner relative {% if current_user and current_user.role.value != 'ADMIN' and loop.index > 1 %}opacity-50 pointer-events-none{% endif %}">
+              <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <span class="font-bold text-white text-xs flex items-center gap-1.5">
+                  <i data-lucide="folder-kanban" class="w-3.5 h-3.5 text-cyan-400"></i>
+                  {{ week.title }}
+                </span>
+
+                {% if week.exam_status == 'READY' or week.exam_id %}
+                <div class="flex items-center gap-1.5 flex-wrap justify-end">
+                  <span class="text-[9px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/30 flex items-center gap-1">
+                    <i data-lucide="check-circle-2" class="w-3 h-3 text-emerald-400"></i> Exam Ready
+                  </span>
+                </div>
+                {% elif week.exam_status == 'FAILED' %}
+                <span class="text-[10px] font-bold text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded border border-rose-500/30 flex items-center gap-1">
+                  <i data-lucide="alert-triangle" class="w-3 h-3 text-rose-400"></i> AI Generation Failed
+                </span>
+                {% else %}
+                <span class="text-[10px] font-semibold text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/30">
+                  4 PDF Lessons • 2 Practice Days
+                </span>
+                {% endif %}
+              </div>
+
+              <!-- Admin Controls & Exam Links -->
+              <div class="flex items-center justify-between gap-2 pt-1 border-b border-slate-800/60 pb-2.5 text-[11px]">
+                <button id="exam-btn-{{ week.id }}" onclick="takeDay5Exam('{{ week.id }}')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] flex items-center gap-1 transition-colors cursor-pointer {% if current_user and current_user.role.value != 'ADMIN' %}opacity-40 pointer-events-none{% endif %}">
+                  <i data-lucide="play" class="w-3 h-3"></i> Take Exam
+                </button>
+
+                {% if current_user and current_user.role.value == 'ADMIN' %}
+                <button onclick="previewExamModal('{{ week.exam_id or week.id }}', '{{ week.title | escape }}')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] flex items-center gap-1 transition-colors cursor-pointer" title="Admin Exam Preview">
+                  <i data-lucide="eye" class="w-3 h-3 text-indigo-400"></i> Preview Exam
+                </button>
+                {% endif %}
+              </div>
+
+              <!-- 6 Days List -->
+              <div class="space-y-2 pt-1">
+                {% for day in week.days %}
+                <div id="day-row-{{ day.id }}" class="p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between gap-2 text-xs {% if current_user and current_user.role.value != 'ADMIN' and not (loop.first and week.week_number == 1) %}opacity-40 pointer-events-none{% endif %}">
+                  <div class="truncate flex items-center gap-2 flex-1">
+                    <span id="day-icon-{{ day.id }}" class="w-4 h-4 shrink-0 text-slate-500">
+                      {% if current_user and current_user.role.value != 'ADMIN' and loop.first and week.week_number == 1 %}
+                      <i data-lucide="unlock" class="w-3.5 h-3.5 text-indigo-400"></i>
+                      {% else %}
+                      <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+                      {% endif %}
+                    </span>
+                    <div class="truncate">
+                      <div class="flex items-center gap-1.5">
+                        <span class="font-bold text-indigo-300 text-[11px]">{{ day.title }}</span>
+                        {% if day.pdf_title %}
+                        <span class="px-1.5 py-0.2 rounded text-[9px] bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">PDF</span>
+                        {% elif day.day_number == 5 %}
+                        <span class="px-1.5 py-0.2 rounded text-[9px] bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">AI Exam</span>
+                        {% elif day.day_number == 6 %}
+                        <span class="px-1.5 py-0.2 rounded text-[9px] bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/30">Interview</span>
+                        {% endif %}
+                      </div>
+                      <span class="text-[10px] text-slate-400 truncate block">{{ day.pdf_title or day.lesson_title or day.topic }}</span>
+                    </div>
+                  </div>
+
+                  {% if day.day_number <= 4 %}
+                  <div class="flex items-center gap-1 shrink-0">
+                    <button id="read-btn-{{ day.id }}" onclick="viewLessonModal('{{ day.id }}', '{{ day.title | escape }}')" class="px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer" {% if current_user and current_user.role.value != 'ADMIN' and not (loop.first and week.week_number == 1) %}disabled{% endif %} title="View PDF & Mark Completed">
+                      <i data-lucide="file-text" class="w-3 h-3 text-indigo-400"></i>
+                      <span>View PDF</span>
+                    </button>
+
+                    {% if current_user and current_user.role.value == 'ADMIN' %}
+                    <button onclick="openEditLessonModal('{{ day.id }}', '{{ day.title | escape }}')" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer" title="Upload / Replace PDF (Admin)">
+                      <i data-lucide="file-up" class="w-3.5 h-3.5 text-cyan-400"></i>
+                    </button>
+                    {% endif %}
+                  </div>
+                  {% elif day.day_number == 5 %}
+                  <div class="flex items-center gap-1 shrink-0">
+                    <button id="day5-exam-btn-{{ week.id }}" onclick="takeDay5Exam('{{ week.id }}', '{{ day.id }}')" class="px-2.5 py-1 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-[10px] font-bold flex items-center gap-1 shadow-md shadow-emerald-600/20 transition-all shrink-0 cursor-pointer {% if current_user and current_user.role.value != 'ADMIN' %}opacity-40 pointer-events-none{% endif %}" title="Take Day 5 Assessment Exam">
+                      <i data-lucide="play" class="w-3 h-3 text-white"></i>
+                      <span>Take Exam</span>
+                    </button>
+                  </div>
+                  {% elif day.day_number == 6 %}
+                  <button id="interview-btn-{{ week.id }}" onclick="startVoiceMockInterview('{{ week.id }}', '{{ week.title | escape }}')" class="px-2.5 py-1 rounded-lg bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white text-[10px] font-bold flex items-center gap-1 shadow-md shadow-cyan-600/20 transition-all shrink-0 cursor-pointer {% if current_user and current_user.role.value != 'ADMIN' %}opacity-40 pointer-events-none{% endif %}">
+                    <i data-lucide="mic" class="w-3 h-3 text-cyan-300"></i>
+                    <span>Voice Mock Interview</span>
+                  </button>
+                  {% else %}
+                  <span class="text-[10px] text-slate-400 font-semibold px-2 py-0.5 rounded bg-slate-900 border border-slate-800 shrink-0">
+                    Revision Day
+                  </span>
+                  {% endif %}
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Read Lesson / PDF Content Modal (All Users - View & Progression) -->
+<!-- Read Lesson / Original PDF Document Viewer Modal -->
+<div id="view-lesson-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/85 backdrop-blur-md">
+  <div class="glass-panel w-full max-w-5xl rounded-3xl border border-indigo-500/30 p-5 shadow-2xl relative h-[92vh] flex flex-col">
+    <!-- Modal Header -->
+    <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-2 shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="p-2 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
+          <i data-lucide="file-text" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <span id="view-lesson-day-tag" class="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block"></span>
+          <h3 id="view-lesson-title" class="font-bold text-white text-sm md:text-base"></h3>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="openPdfInNewWindow()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer" title="Open full PDF in browser tab">
+          <i data-lucide="external-link" class="w-3.5 h-3.5 text-cyan-400"></i>
+          <span class="hidden sm:inline">Open in Tab</span>
+        </button>
+
+        <a id="download-pdf-link" href="#" target="_blank" class="px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">Download PDF</span>
+        </a>
+
+        <button onclick="closeModal('view-lesson-modal')" class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Reading Progress & Page Indicator Bar -->
+    <div class="px-3 py-2 bg-slate-900/90 rounded-2xl border border-slate-800/90 mb-3 shrink-0 flex flex-col gap-2">
+      <div class="flex items-center justify-between px-1 text-xs">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-cyan-400 flex items-center gap-1.5 text-[11px] uppercase tracking-wider">
+            <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+            Pages Viewed:
+          </span>
+          <span id="pdf-progress-text" class="font-bold text-white text-xs">0 / 0 pages completed</span>
+        </div>
+        <div id="pdf-resume-indicator" class="hidden text-[11px] text-emerald-400 font-semibold flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
+          <i data-lucide="bookmark" class="w-3 h-3"></i>
+          <span id="pdf-resume-text">Resuming</span>
+        </div>
+      </div>
+      
+      <!-- Progress Bar Track -->
+      <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+        <div id="pdf-reading-bar" class="bg-gradient-to-r from-indigo-500 via-cyan-500 to-emerald-400 h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+      </div>
+
+      <!-- Scrollable Page Chips -->
+      <div id="pdf-page-chips" class="flex items-center gap-1.5 overflow-x-auto py-0.5 px-0.5 custom-scrollbar text-[11px]">
+        <!-- Page chips dynamically inserted -->
+      </div>
+    </div>
+
+    <!-- Real PDF Document Multi-Page Continuous Container -->
+    <div class="flex-1 w-full h-full min-h-[380px] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-6 relative flex flex-col items-center" id="view-lesson-body">
+      <!-- Continuous pages rendered via PDF.js -->
+    </div>
+
+    <!-- Bottom Actions Bar -->
+    <div class="pt-3 border-t border-slate-800/80 mt-3 flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-2">
+        <span id="reading-status-badge" class="text-xs text-amber-400 font-semibold flex items-center gap-1.5 bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/20">
+          <i data-lucide="lock" class="w-4 h-4 text-amber-400"></i>
+          <span>Read all pages to complete</span>
+        </span>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="mark-complete-btn" onclick="handleMarkCompleteClick()" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer">
+          <i data-lucide="lock" class="w-4 h-4 text-slate-400"></i>
+          <span>Mark as Completed</span>
+        </button>
+
+        <button onclick="closeModal('view-lesson-modal')" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs cursor-pointer">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Incomplete Lesson Popup Warning Modal -->
+<div id="incomplete-lesson-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+  <div class="glass-panel w-full max-w-md rounded-3xl border border-amber-500/40 p-6 shadow-2xl relative text-center space-y-4">
+    <div class="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/10">
+      <i data-lucide="alert-triangle" class="w-7 h-7"></i>
+    </div>
+    <div>
+      <h3 class="text-lg font-bold text-white tracking-tight">Complete the total lesson</h3>
+      <p class="text-xs text-slate-300 mt-2 leading-relaxed">
+        Please read/view all pages of this lesson before marking it as completed.
+      </p>
+    </div>
+
+    <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+      <div class="flex items-center justify-between text-xs">
+        <span class="text-slate-400 font-semibold">Your Progress:</span>
+        <span id="incomplete-progress-text" class="font-extrabold text-amber-400 text-sm">3 / 5 pages viewed</span>
+      </div>
+      <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+        <div id="incomplete-progress-bar" class="bg-amber-400 h-2 rounded-full transition-all duration-300" style="width: 60%"></div>
+      </div>
+    </div>
+
+    <button onclick="closeModal('incomplete-lesson-modal')" class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 cursor-pointer">
+      <span>Continue Reading</span>
+      <i data-lucide="arrow-down" class="w-4 h-4"></i>
+    </button>
+  </div>
+</div>
+
+{% if current_user and current_user.role.value == 'ADMIN' %}
+<!-- Edit Lesson / Upload PDF Modal (Admin Only) -->
+<div id="edit-lesson-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+  <div class="glass-panel w-full max-w-xl rounded-3xl border border-cyan-500/30 p-6 shadow-2xl relative">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+      <div class="flex items-center gap-3">
+        <div class="p-2 rounded-xl bg-cyan-600/20 text-cyan-400 border border-cyan-500/30">
+          <i data-lucide="file-up" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-white text-base">Upload Lesson PDF Document</h3>
+          <p id="edit-lesson-day-label" class="text-[11px] text-slate-400"></p>
+        </div>
+      </div>
+      <button onclick="closeModal('edit-lesson-modal')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <form onsubmit="handleEditLessonSubmit(event)" class="space-y-4 text-xs">
+      <input type="hidden" id="edit-lesson-day-id">
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">PDF Document Title</label>
+        <input type="text" id="edit-lesson-title-input" required placeholder="e.g. Introduction to AI" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-500">
+      </div>
+
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Select PDF File (.pdf)</label>
+        <div class="border-2 border-dashed border-slate-700 rounded-xl p-5 text-center hover:border-cyan-500 transition-colors">
+          <input type="file" id="edit-lesson-file-input" accept=".pdf" class="hidden" onchange="updateEditFileNameLabel(this)">
+          <label for="edit-lesson-file-input" class="cursor-pointer flex flex-col items-center gap-2">
+            <i data-lucide="file-up" class="w-7 h-7 text-cyan-400"></i>
+            <span id="edit-file-name-label" class="text-slate-300 font-medium">Click to browse new PDF file</span>
+            <span class="text-[10px] text-slate-500">Text will be automatically extracted and indexed into ChromaDB</span>
+          </label>
+        </div>
+      </div>
+
+      <button type="submit" id="save-lesson-btn" class="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold transition-all shadow-lg shadow-cyan-600/30 cursor-pointer">
+        Upload PDF & Update Lesson
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Create Study Plan Modal (Admin Only - With Day 1–4 PDF Uploads) -->
+<div id="create-plan-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+  <div class="glass-panel w-full max-w-2xl rounded-3xl border border-slate-700/80 p-6 shadow-2xl relative my-8">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+      <div class="flex items-center gap-3">
+        <div class="p-2 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
+          <i data-lucide="book-open" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-white text-base">Create 6-Week Study Plan</h3>
+          <p class="text-[11px] text-slate-400">Upload Day 1–Day 4 PDF documents for curriculum generation</p>
+        </div>
+      </div>
+      <button onclick="closeModal('create-plan-modal')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <form onsubmit="handleCreatePlanSubmit(event)" class="space-y-4 text-xs">
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Study Plan Name</label>
+        <input type="text" id="create-plan-title" required placeholder="e.g. Artificial Intelligence Mastery" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Category / Subject</label>
+          <input type="text" id="create-plan-category" required placeholder="e.g. Artificial Intelligence" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Duration</label>
+          <input type="text" disabled value="6 Weeks (Sequential Progression)" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-indigo-300 font-bold cursor-not-allowed">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Description & Overview</label>
+        <textarea id="create-plan-description" rows="2" placeholder="Overview of learning objectives and curriculum scope..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"></textarea>
+      </div>
+
+      <!-- Week 1 PDF Upload Section (Day 1 to Day 4) -->
+      <div class="pt-2 border-t border-slate-800 space-y-3">
+        <div class="flex items-center justify-between">
+          <label class="block text-indigo-400 font-bold uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+            <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+            Week 1 Daily PDF Documents (Day 1 to Day 4)
+          </label>
+          <span class="text-[10px] text-slate-500">Upload 1 PDF for each day</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <!-- Day 1 PDF -->
+          <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+            <span class="font-bold text-indigo-300 block text-[11px]">Day 1 PDF</span>
+            <input type="text" id="day1_title" placeholder="e.g. Introduction to AI" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white text-[11px]">
+            <input type="file" id="day1_file" accept=".pdf" class="w-full text-[10px] text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[10px] file:bg-indigo-600/30 file:text-indigo-300 hover:file:bg-indigo-600/50 cursor-pointer">
+          </div>
+
+          <!-- Day 2 PDF -->
+          <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+            <span class="font-bold text-indigo-300 block text-[11px]">Day 2 PDF</span>
+            <input type="text" id="day2_title" placeholder="e.g. Machine Learning Basics" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white text-[11px]">
+            <input type="file" id="day2_file" accept=".pdf" class="w-full text-[10px] text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[10px] file:bg-indigo-600/30 file:text-indigo-300 hover:file:bg-indigo-600/50 cursor-pointer">
+          </div>
+
+          <!-- Day 3 PDF -->
+          <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+            <span class="font-bold text-indigo-300 block text-[11px]">Day 3 PDF</span>
+            <input type="text" id="day3_title" placeholder="e.g. Applications of AI" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white text-[11px]">
+            <input type="file" id="day3_file" accept=".pdf" class="w-full text-[10px] text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[10px] file:bg-indigo-600/30 file:text-indigo-300 hover:file:bg-indigo-600/50 cursor-pointer">
+          </div>
+
+          <!-- Day 4 PDF -->
+          <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+            <span class="font-bold text-indigo-300 block text-[11px]">Day 4 PDF</span>
+            <input type="text" id="day4_title" placeholder="e.g. Deep Learning" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white text-[11px]">
+            <input type="file" id="day4_file" accept=".pdf" class="w-full text-[10px] text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[10px] file:bg-indigo-600/30 file:text-indigo-300 hover:file:bg-indigo-600/50 cursor-pointer">
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" id="create-plan-btn" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-lg shadow-indigo-600/30 cursor-pointer">
+        Create Study Plan with Uploaded PDFs
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Study Plan Modal (Admin Only) -->
+<div id="edit-plan-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+  <div class="glass-panel w-full max-w-lg rounded-3xl border border-slate-700/80 p-6 shadow-2xl relative">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+      <h3 class="font-bold text-white text-base">Edit Study Plan Metadata</h3>
+      <button onclick="closeModal('edit-plan-modal')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <form onsubmit="handleEditPlanSubmit(event)" class="space-y-4 text-xs">
+      <input type="hidden" id="edit-plan-id">
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Study Plan Name</label>
+        <input type="text" id="edit-plan-title" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-indigo-500">
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Category / Domain</label>
+          <input type="text" id="edit-plan-category" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Status</label>
+          <select id="edit-plan-status" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-indigo-500">
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="DRAFT">DRAFT</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Description</label>
+        <textarea id="edit-plan-description" rows="3" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-indigo-500"></textarea>
+      </div>
+
+      <button type="submit" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all cursor-pointer">
+        Save Changes
+      </button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<!-- Admin Exam Preview Modal -->
+<div id="preview-exam-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+  <div class="glass-panel w-full max-w-3xl rounded-3xl border border-indigo-500/40 p-6 shadow-2xl relative max-h-[85vh] flex flex-col">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-emerald-600/20 text-emerald-400 border border-emerald-500/30">
+          <i data-lucide="eye" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 id="preview-exam-title" class="font-bold text-white text-base">Week Exam Preview</h3>
+          <p class="text-[11px] text-emerald-400 font-semibold">AI Generated Questions from 4-Day PDF Documents</p>
+        </div>
+      </div>
+      <button onclick="closeModal('preview-exam-modal')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto pr-2 space-y-4 text-xs text-slate-200" id="preview-questions-container">
+    </div>
+
+    <div class="pt-4 border-t border-slate-800/80 mt-4 flex items-center justify-end shrink-0">
+      <button onclick="closeModal('preview-exam-modal')" class="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs cursor-pointer">
+        Close Preview
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Mozilla PDF.js for High Performance Continuous Multi-Page Rendering -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  let activeDayIdForCompletion = null;
+  const currentUserRole = "{{ current_user.role.value if current_user else 'STUDENT' }}";
+
+  // PDF Page Tracking & Viewer State
+  let currentPdfDoc = null;
+  let currentTotalPages = 0;
+  let currentViewedPages = new Set();
+  let currentLastPage = 1;
+  let currentIsAllViewed = false;
+  let pageObserver = null;
+  let pageSaveTimeout = null;
+
+  function updateEditFileNameLabel(input) {
+    const label = document.getElementById('edit-file-name-label');
+    if (input.files && input.files[0]) {
+      label.innerText = `Selected: ${input.files[0].name} (${(input.files[0].size / 1024).toFixed(1)} KB)`;
+      label.classList.add('text-cyan-300');
+    }
+  }
+
+  function togglePlanDetails(planId) {
+    const details = document.getElementById(`plan-details-${planId}`);
+    const chevron = document.getElementById(`chevron-${planId}`);
+    if (details) {
+      details.classList.toggle('hidden');
+      if (chevron) {
+        chevron.classList.toggle('rotate-180');
+      }
+      if (!details.classList.contains('hidden')) {
+        loadPlanProgression(planId);
+      }
+    }
+  }
+
+  async function loadPlanProgression(planId) {
+    if (currentUserRole === 'ADMIN') return; // Admin previews all unlocked
+
+    try {
+      const res = await apiFetch(`/study-plans/${planId}/progress`);
+      if (!res.ok) return;
+      const prog = await res.json();
+      applyLockUnlockRules(planId, prog);
+    } catch (e) {
+      console.warn('Failed loading progress:', e);
+    }
+  }
+
+  function applyLockUnlockRules(planId, prog) {
+    if (currentUserRole === 'ADMIN') return; // Admin previews all unlocked
+
+    const completedDays = new Set(prog.completed_days || []);
+    const completedWeeks = new Set(prog.completed_weeks || []);
+
+    const planCard = document.getElementById(`plan-card-${planId}`) || document;
+    const weekBlocks = planCard.querySelectorAll('[id^="week-block-"]');
+    
+    let prevWeekCompleted = true; // Week 1 is unlocked initially
+
+    weekBlocks.forEach((weekBlock, wIdx) => {
+      const weekId = weekBlock.id.replace('week-block-', '');
+      const isWeekUnlocked = (wIdx === 0) || prevWeekCompleted;
+
+      if (!isWeekUnlocked) {
+        weekBlock.classList.add('opacity-50', 'pointer-events-none');
+      } else {
+        weekBlock.classList.remove('opacity-50', 'pointer-events-none');
+      }
+
+      prevWeekCompleted = completedWeeks.has(weekId);
+
+      const dayRows = weekBlock.querySelectorAll('[id^="day-row-"]');
+      let prevDayCompleted = isWeekUnlocked; // Day 1 of unlocked week is unlocked
+
+      dayRows.forEach((dayRow, dIdx) => {
+        const dayId = dayRow.id.replace('day-row-', '');
+        const isDayUnlocked = isWeekUnlocked && ((dIdx === 0) || prevDayCompleted);
+
+        const iconSpan = document.getElementById(`day-icon-${dayId}`);
+        const readBtn = document.getElementById(`read-btn-${dayId}`);
+        const examBtn = document.getElementById(`exam-btn-${weekId}`);
+        const day5Btn = document.getElementById(`day5-exam-btn-${weekId}`);
+        const interviewBtn = document.getElementById(`interview-btn-${weekId}`);
+
+        if (isDayUnlocked) {
+          dayRow.classList.remove('opacity-40', 'pointer-events-none');
+          if (iconSpan) {
+            if (completedDays.has(dayId)) {
+              iconSpan.innerHTML = '<i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-emerald-400"></i>';
+            } else {
+              iconSpan.innerHTML = '<i data-lucide="unlock" class="w-3.5 h-3.5 text-indigo-400"></i>';
+            }
+          }
+          if (readBtn) readBtn.disabled = false;
+          if (dIdx === 4) {
+            if (examBtn) {
+              examBtn.classList.remove('opacity-40', 'pointer-events-none');
+              examBtn.disabled = false;
+            }
+            if (day5Btn) {
+              day5Btn.classList.remove('opacity-40', 'pointer-events-none');
+              day5Btn.disabled = false;
+              if (completedDays.has(dayId)) {
+                day5Btn.innerHTML = '<i data-lucide="check-circle-2" class="w-3 h-3 text-emerald-300"></i><span>Completed</span>';
+                day5Btn.className = 'px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1 shrink-0';
+              }
+            }
+          }
+          if (dIdx === 5 && interviewBtn) {
+            interviewBtn.classList.remove('opacity-40', 'pointer-events-none');
+            interviewBtn.disabled = false;
+          }
+        } else {
+          dayRow.classList.add('opacity-40', 'pointer-events-none');
+          if (iconSpan) {
+            iconSpan.innerHTML = '<i data-lucide="lock" class="w-3.5 h-3.5 text-slate-600"></i>';
+          }
+          if (readBtn) readBtn.disabled = true;
+          if (dIdx === 4) {
+            if (examBtn) {
+              examBtn.classList.add('opacity-40', 'pointer-events-none');
+              examBtn.disabled = true;
+            }
+            if (day5Btn) {
+              day5Btn.classList.add('opacity-40', 'pointer-events-none');
+              day5Btn.disabled = true;
+            }
+          }
+          if (dIdx === 5 && interviewBtn) {
+            interviewBtn.classList.add('opacity-40', 'pointer-events-none');
+            interviewBtn.disabled = true;
+          }
+        }
+
+        prevDayCompleted = completedDays.has(dayId);
+      });
+    });
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function updatePageTrackingUI() {
+    const viewedCount = currentViewedPages.size;
+    const total = currentTotalPages;
+    const pct = total > 0 ? Math.min(100, Math.round((viewedCount / total) * 100)) : 0;
+
+    const progressText = document.getElementById('pdf-progress-text');
+    if (progressText) {
+      progressText.innerText = `${viewedCount} / ${total} pages completed (${pct}%)`;
+    }
+
+    const readingBar = document.getElementById('pdf-reading-bar');
+    if (readingBar) {
+      readingBar.style.width = `${pct}%`;
+    }
+
+    // Update chips
+    for (let p = 1; p <= total; p++) {
+      const chip = document.getElementById(`pdf-page-chip-${p}`);
+      if (chip) {
+        if (currentViewedPages.has(p)) {
+          chip.className = 'px-2.5 py-1 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all hover:bg-emerald-500/30 shrink-0';
+          chip.innerHTML = `<i data-lucide="check-circle-2" class="w-3 h-3 text-emerald-400"></i><span>Page ${p}</span>`;
+        } else {
+          chip.className = 'px-2.5 py-1 rounded-xl bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition-all hover:bg-slate-700 shrink-0';
+          chip.innerHTML = `<span class="w-2.5 h-2.5 rounded-full border border-slate-500 inline-block"></span><span>Page ${p}</span>`;
+        }
+      }
+    }
+
+    const statusBadge = document.getElementById('reading-status-badge');
+    const completeBtn = document.getElementById('mark-complete-btn');
+
+    if (total > 0 && viewedCount >= total) {
+      currentIsAllViewed = true;
+      if (statusBadge) {
+        statusBadge.className = 'text-xs text-emerald-300 font-semibold flex items-center gap-1.5 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/30';
+        statusBadge.innerHTML = '<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i><span>All pages completed! Ready to mark complete.</span>';
+      }
+      if (completeBtn) {
+        completeBtn.className = 'px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-600/25 border border-emerald-400/40 transition-all cursor-pointer';
+        completeBtn.innerHTML = '<i data-lucide="check-circle-2" class="w-4 h-4"></i><span>Mark as Completed</span>';
+      }
+    } else {
+      currentIsAllViewed = false;
+      if (statusBadge) {
+        statusBadge.className = 'text-xs text-amber-400 font-semibold flex items-center gap-1.5 bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/20';
+        statusBadge.innerHTML = `<i data-lucide="lock" class="w-4 h-4 text-amber-400"></i><span>Read all ${total} pages to complete</span>`;
+      }
+      if (completeBtn) {
+        completeBtn.className = 'px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-semibold text-xs flex items-center gap-2 transition-all cursor-pointer';
+        completeBtn.innerHTML = `<i data-lucide="lock" class="w-4 h-4 text-slate-400"></i><span>Mark as Completed (${viewedCount}/${total})</span>`;
+      }
+    }
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function savePageProgressDebounced(dayId, totalPages, lastPage) {
+    if (!dayId) return;
+    clearTimeout(pageSaveTimeout);
+    const pagesToSave = Array.from(currentViewedPages);
+    pageSaveTimeout = setTimeout(async () => {
+      try {
+        await apiFetch(`/study-plans/days/${dayId}/page-progress`, {
+          method: 'POST',
+          body: JSON.stringify({
+            viewed_pages: pagesToSave,
+            total_pages: totalPages,
+            last_page: lastPage
+          })
+        });
+      } catch (e) {
+        console.warn('Failed saving page progress:', e);
+      }
+    }, 300);
+  }
+
+  function scrollToPdfPage(p) {
+    const el = document.getElementById(`pdf-page-wrapper-${p}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  function openPdfInNewWindow() {
+    if (!activeDayIdForCompletion) return;
+    const token = getToken();
+    const pdfUrl = `/api/study-plans/days/${activeDayIdForCompletion}/pdf?token=${encodeURIComponent(token)}`;
+    window.open(pdfUrl, '_blank');
+  }
+
+  async function viewLessonModal(dayId, dayTag) {
+    activeDayIdForCompletion = dayId;
+    currentViewedPages = new Set();
+    currentTotalPages = 0;
+    currentLastPage = 1;
+    currentIsAllViewed = false;
+
+    if (pageObserver) {
+      pageObserver.disconnect();
+      pageObserver = null;
+    }
+
+    document.getElementById('view-lesson-day-tag').innerText = dayTag || 'Lesson Module';
+    document.getElementById('view-lesson-title').innerText = 'Loading PDF Document...';
+    document.getElementById('pdf-progress-text').innerText = 'Loading pages...';
+    document.getElementById('pdf-reading-bar').style.width = '0%';
+    document.getElementById('pdf-page-chips').innerHTML = '';
+    document.getElementById('pdf-resume-indicator').classList.add('hidden');
+
+    const bodyEl = document.getElementById('view-lesson-body');
+    bodyEl.innerHTML = '<div class="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-3 py-20"><i data-lucide="loader-2" class="w-8 h-8 animate-spin text-indigo-400"></i><span class="text-xs font-semibold">Loading PDF Document & Restoring Reading Progress...</span></div>';
+    if (window.lucide) lucide.createIcons();
+
+    openModal('view-lesson-modal');
+
+    try {
+      const [dayRes, progRes] = await Promise.all([
+        apiFetch(`/study-plans/days/${dayId}`),
+        apiFetch(`/study-plans/days/${dayId}/page-progress`)
+      ]);
+
+      if (!dayRes.ok) {
+        bodyEl.innerHTML = '<div class="p-8 text-center text-rose-400 font-semibold">Failed to load study plan day metadata.</div>';
+        return;
+      }
+
+      const dayData = await dayRes.json();
+      const progData = progRes.ok ? await progRes.json() : null;
+
+      const displayTitle = dayData.pdf_title || dayData.lesson_title || dayData.topic || 'Lesson Module';
+      document.getElementById('view-lesson-title').innerText = displayTitle;
+
+      const token = getToken();
+      const pdfViewUrl = `/api/study-plans/days/${dayId}/pdf?token=${encodeURIComponent(token)}`;
+      const downloadUrl = pdfViewUrl;
+      document.getElementById('download-pdf-link').href = downloadUrl;
+
+      // Restore previously viewed pages from persistent backend store
+      let savedLastPage = 1;
+      if (progData) {
+        if (Array.isArray(progData.viewed_pages)) {
+          progData.viewed_pages.forEach(p => currentViewedPages.add(p));
+        }
+        savedLastPage = progData.last_page || 1;
+        currentLastPage = savedLastPage;
+        currentIsAllViewed = progData.is_all_viewed || false;
+      }
+
+      // Load multi-page PDF using Mozilla PDF.js
+      const loadingTask = pdfjsLib.getDocument({ url: pdfViewUrl, withCredentials: false });
+      const pdf = await loadingTask.promise;
+      currentPdfDoc = pdf;
+      currentTotalPages = pdf.numPages;
+
+      bodyEl.innerHTML = '';
+      const chipsContainer = document.getElementById('pdf-page-chips');
+      chipsContainer.innerHTML = '';
+
+      // Build chips
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const chipBtn = document.createElement('button');
+        chipBtn.id = `pdf-page-chip-${p}`;
+        chipBtn.type = 'button';
+        chipBtn.onclick = () => scrollToPdfPage(p);
+        chipsContainer.appendChild(chipBtn);
+      }
+
+      updatePageTrackingUI();
+
+      // Render each page canvas in vertical continuous scroll container
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const pageWrapper = document.createElement('div');
+        pageWrapper.id = `pdf-page-wrapper-${p}`;
+        pageWrapper.className = 'pdf-page-wrapper w-full flex flex-col items-center mb-6';
+        pageWrapper.setAttribute('data-page-number', p);
+
+        const headerLabel = document.createElement('div');
+        headerLabel.className = 'text-[11px] font-bold text-slate-400 mb-2 px-3 py-1 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-2';
+        headerLabel.innerHTML = `<span>Page ${p} of ${pdf.numPages}</span>`;
+        pageWrapper.appendChild(headerLabel);
+
+        const canvas = document.createElement('canvas');
+        canvas.id = `pdf-canvas-${p}`;
+        canvas.className = 'shadow-2xl rounded-xl border border-slate-700/80 bg-white max-w-full';
+        pageWrapper.appendChild(canvas);
+        bodyEl.appendChild(pageWrapper);
+
+        const page = await pdf.getPage(p);
+        const viewport = page.getViewport({ scale: 1.35 });
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        const renderContext = {
+          canvasContext: canvas.getContext('2d'),
+          viewport: viewport
+        };
+        await page.render(renderContext).promise;
+      }
+
+      // Initialize IntersectionObserver to track visible pages while scrolling
+      pageObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const pageNum = parseInt(entry.target.getAttribute('data-page-number'));
+            if (pageNum) {
+              const isNew = !currentViewedPages.has(pageNum);
+              currentViewedPages.add(pageNum);
+              currentLastPage = pageNum;
+              updatePageTrackingUI();
+              savePageProgressDebounced(activeDayIdForCompletion, currentTotalPages, pageNum);
+            }
+          }
+        });
+      }, {
+        root: bodyEl,
+        threshold: 0.25
+      });
+
+      document.querySelectorAll('.pdf-page-wrapper').forEach(el => pageObserver.observe(el));
+
+      // Resume position if savedLastPage > 1
+      if (savedLastPage > 1) {
+        const resumePill = document.getElementById('pdf-resume-indicator');
+        const resumeText = document.getElementById('pdf-resume-text');
+        if (resumePill && resumeText) {
+          resumeText.innerText = `Resumed at Page ${savedLastPage}`;
+          resumePill.classList.remove('hidden');
+          setTimeout(() => resumePill.classList.add('hidden'), 4000);
+        }
+        setTimeout(() => {
+          const targetEl = document.getElementById(`pdf-page-wrapper-${savedLastPage}`);
+          if (targetEl) {
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 200);
+      }
+
+    } catch (err) {
+      console.error(err);
+      bodyEl.innerHTML = '<div class="p-8 text-center text-rose-400 font-semibold">Error loading PDF document. Please try again.</div>';
+    }
+  }
+
+  function handleMarkCompleteClick() {
+    if (!currentIsAllViewed && currentViewedPages.size < currentTotalPages && currentUserRole !== 'ADMIN') {
+      const viewedCount = currentViewedPages.size;
+      const total = currentTotalPages;
+      const pct = total > 0 ? Math.min(100, Math.round((viewedCount / total) * 100)) : 0;
+
+      const incText = document.getElementById('incomplete-progress-text');
+      if (incText) incText.innerText = `${viewedCount} / ${total} pages viewed`;
+
+      const incBar = document.getElementById('incomplete-progress-bar');
+      if (incBar) incBar.style.width = `${pct}%`;
+
+      openModal('incomplete-lesson-modal');
+      return;
+    }
+    markCurrentLessonComplete();
+  }
+
+  async function markCurrentLessonComplete() {
+    if (!activeDayIdForCompletion) return;
+
+    clearTimeout(pageSaveTimeout);
+
+    const btn = document.getElementById('mark-complete-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Saving Progress...';
+    if (window.lucide) lucide.createIcons();
+
+    try {
+      const res = await apiFetch(`/study-plans/days/${activeDayIdForCompletion}/complete`, {
+        method: 'POST',
+        body: JSON.stringify({
+          viewed_pages: Array.from(currentViewedPages),
+          total_pages: currentTotalPages,
+          last_page: currentLastPage
+        })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.detail || 'Failed to mark as completed');
+        return;
+      }
+      const data = await res.json();
+      closeModal('view-lesson-modal');
+      alert('Day marked as completed! The next lesson module is now unlocked.');
+      window.location.reload();
+    } catch (err) {
+      alert('Error updating progression');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="check-circle-2" class="w-4 h-4"></i><span>Mark as Completed</span>';
+    }
+  }
+
+  async function openEditLessonModal(dayId, dayTag) {
+    document.getElementById('edit-lesson-day-id').value = dayId;
+    document.getElementById('edit-lesson-day-label').innerText = `Loading ${dayTag}...`;
+    document.getElementById('edit-lesson-title-input').value = 'Loading...';
+    document.getElementById('edit-lesson-file-input').value = '';
+    document.getElementById('edit-file-name-label').innerText = 'Click to browse new PDF file';
+
+    openModal('edit-lesson-modal');
+
+    try {
+      const res = await apiFetch(`/study-plans/days/${dayId}`);
+      if (!res.ok) return;
+      const dayData = await res.json();
+      document.getElementById('edit-lesson-day-label').innerText = `Upload / Edit PDF for ${dayTag}`;
+      document.getElementById('edit-lesson-title-input').value = dayData.pdf_title || dayData.lesson_title || dayData.topic || '';
+    } catch (e) {
+      console.warn('Error fetching day for edit:', e);
+    }
+  }
+
+  async function handleEditLessonSubmit(e) {
+    e.preventDefault();
+    const dayId = document.getElementById('edit-lesson-day-id').value;
+    const title = document.getElementById('edit-lesson-title-input').value;
+    const fileInput = document.getElementById('edit-lesson-file-input');
+
+    const btn = document.getElementById('save-lesson-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Uploading & Indexing PDF...';
+    if (window.lucide) lucide.createIcons();
+
+    const formData = new FormData();
+    formData.append('title', title);
+    if (fileInput.files && fileInput.files[0]) {
+      formData.append('file', fileInput.files[0]);
+    }
+
+    try {
+      const res = await apiFetch(`/study-plans/days/${dayId}/upload-pdf`, {
+        method: 'POST',
+        body: formData
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.detail || 'Failed to update lesson PDF');
+        return;
+      }
+      window.location.reload();
+    } catch (err) {
+      alert('Error saving lesson PDF');
+    } finally {
+      btn.disabled = false;
+      btn.innerText = 'Upload PDF & Update Lesson';
+    }
+  }
+
+  async function takeDay5Exam(weekId, dayId) {
+    const btn = (dayId ? document.getElementById(`day5-exam-btn-${weekId}`) : null) || document.getElementById(`exam-btn-${weekId}`);
+    const originalText = btn ? btn.innerHTML : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Loading Exam...</span>';
+      if (window.lucide) lucide.createIcons();
+    }
+    try {
+      const res = await apiFetch(`/study-plans/weeks/${weekId}/exam`);
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.detail || 'Day 5 assessment exam is not ready yet. Please complete Day 1 to Day 4 lessons first.');
+        return;
+      }
+      const data = await res.json();
+      if (!data || !data.id) {
+        alert('Could not retrieve exam information.');
+        return;
+      }
+      window.location.href = `/exams/${data.id}/take`;
+    } catch (e) {
+      console.error('Error starting exam:', e);
+      alert('Network error initializing exam. Please try again.');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+  }
+
+  async function previewExamModal(examId, weekTitle) {
+    document.getElementById('preview-exam-title').innerText = `${weekTitle} Exam Preview`;
+    const container = document.getElementById('preview-questions-container');
+    container.innerHTML = '<p class="text-slate-400 italic flex items-center gap-2"><i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Loading AI generated questions from 4-Day PDFs...</p>';
+    if (window.lucide) lucide.createIcons();
+
+    openModal('preview-exam-modal');
+
+    try {
+      const res = await apiFetch(`/exams/${examId}/questions`);
+      if (!res.ok) {
+        container.innerHTML = '<p class="text-rose-400">Failed to load exam questions.</p>';
+        return;
+      }
+      const questions = await res.json();
+      if (!questions || questions.length === 0) {
+        container.innerHTML = '<p class="text-slate-400 italic">No questions found in this exam.</p>';
+        return;
+      }
+
+      let html = '';
+      questions.forEach((q, idx) => {
+        let badgeColor = 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30';
+        if (q.question_type === 'One Word') badgeColor = 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30';
+        if (q.question_type === 'FillBlank') badgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+        if (q.question_type === 'DESCRIPTIVE') badgeColor = 'bg-purple-500/20 text-purple-300 border-purple-500/30';
+
+        html += `
+          <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-white text-xs">Q${idx + 1}. (${q.points} pts)</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${badgeColor}">${q.question_type}</span>
+            </div>
+            <p class="font-semibold text-slate-200 leading-relaxed">${q.question_text}</p>
+        `;
+
+        if (q.question_type === 'MCQ') {
+          html += `
+            <div class="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+              <div class="p-2 rounded bg-slate-950 border ${q.correct_option === 'A' ? 'border-emerald-500 text-emerald-300 font-bold' : 'border-slate-800 text-slate-400'}">A: ${q.option_a || ''}</div>
+              <div class="p-2 rounded bg-slate-950 border ${q.correct_option === 'B' ? 'border-emerald-500 text-emerald-300 font-bold' : 'border-slate-800 text-slate-400'}">B: ${q.option_b || ''}</div>
+              <div class="p-2 rounded bg-slate-950 border ${q.correct_option === 'C' ? 'border-emerald-500 text-emerald-300 font-bold' : 'border-slate-800 text-slate-400'}">C: ${q.option_c || ''}</div>
+              <div class="p-2 rounded bg-slate-950 border ${q.correct_option === 'D' ? 'border-emerald-500 text-emerald-300 font-bold' : 'border-slate-800 text-slate-400'}">D: ${q.option_d || ''}</div>
+            </div>
+          `;
+        } else {
+          html += `
+            <div class="p-2.5 rounded bg-slate-950 border border-emerald-500/30 text-emerald-300 font-mono text-[11px]">
+              <span class="text-slate-500 font-sans">Answer Key:</span> ${q.correct_option}
+            </div>
+          `;
+        }
+
+        html += `</div>`;
+      });
+
+      container.innerHTML = html;
+    } catch (err) {
+      container.innerHTML = '<p class="text-rose-400">Error loading questions.</p>';
+    }
+  }
+
+  async function regenerateExam(weekId, weekTitle) {
+    if (confirm(`Regenerate AI Exam for ${weekTitle}?`)) {
+      try {
+        const res = await apiFetch(`/study-plans/weeks/${weekId}/regenerate-exam`, { method: 'POST' });
+        if (!res.ok) {
+          const data = await res.json();
+          alert(data.detail || 'Failed to regenerate AI Exam');
+          return;
+        }
+        const data = await res.json();
+        alert(data.message || 'AI Exam Generated Successfully');
+        window.location.reload();
+      } catch (err) {
+        alert('Error regenerating exam');
+      }
+    }
+  }
+
+  async function handleCreatePlanSubmit(e) {
+    e.preventDefault();
+    const title = document.getElementById('create-plan-title').value;
+    const category = document.getElementById('create-plan-category').value;
+    const description = document.getElementById('create-plan-description').value;
+
+    const btn = document.getElementById('create-plan-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Uploading PDFs & Generating 6-Week Plan...';
+    if (window.lucide) lucide.createIcons();
+
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('category', category);
+    formData.append('description', description);
+    formData.append('status', 'ACTIVE');
+
+    for (let i = 1; i <= 4; i++) {
+      const titleInput = document.getElementById(`day${i}_title`);
+      const fileInput = document.getElementById(`day${i}_file`);
+      if (titleInput && titleInput.value.trim()) {
+        formData.append(`day${i}_title`, titleInput.value.trim());
+      }
+      if (fileInput && fileInput.files && fileInput.files[0]) {
+        formData.append(`day${i}_file`, fileInput.files[0]);
+      }
+    }
+
+    try {
+      const res = await apiFetch('/study-plans', {
+        method: 'POST',
+        body: formData
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.detail || 'Failed to create Study Plan');
+        return;
+      }
+      window.location.reload();
+    } catch (err) {
+      alert('Error creating Study Plan');
+    } finally {
+      btn.disabled = false;
+      btn.innerText = 'Create Study Plan with Uploaded PDFs';
+    }
+  }
+
+  function openEditPlanModal(id, title, description, category, status) {
+    document.getElementById('edit-plan-id').value = id;
+    document.getElementById('edit-plan-title').value = title;
+    document.getElementById('edit-plan-description').value = description;
+    document.getElementById('edit-plan-category').value = category;
+    document.getElementById('edit-plan-status').value = status;
+    openModal('edit-plan-modal');
+  }
+
+  async function handleEditPlanSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('edit-plan-id').value;
+    const title = document.getElementById('edit-plan-title').value;
+    const category = document.getElementById('edit-plan-category').value;
+    const status = document.getElementById('edit-plan-status').value;
+    const description = document.getElementById('edit-plan-description').value;
+
+    try {
+      const res = await apiFetch(`/study-plans/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ title, category, status, description })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.detail || 'Failed to update Study Plan');
+        return;
+      }
+      window.location.reload();
+    } catch (err) {
+      alert('Error updating Study Plan');
+    }
+  }
+
+  async function handleDeletePlan(id, title) {
+    if (confirm(`Are you sure you want to delete Study Plan '${title}' and all its lesson PDFs?`)) {
+      try {
+        const res = await apiFetch(`/study-plans/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const data = await res.json();
+          alert(data.detail || 'Failed to delete Study Plan');
+          return;
+        }
+        window.location.reload();
+      } catch (err) {
+        alert('Error deleting Study Plan');
+      }
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (currentUserRole !== 'ADMIN') {
+      const planCards = document.querySelectorAll('[id^="plan-card-"]');
+      planCards.forEach(card => {
+        const planId = card.id.replace('plan-card-', '');
+        loadPlanProgression(planId);
+      });
+    }
+  });
+</script>
+{% endblock %}

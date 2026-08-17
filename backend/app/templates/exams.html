@@ -1,0 +1,529 @@
+{% extends "base.html" %}
+
+{% block title %}Exams | Talent Management Platform for Employee Performance and Career Growth{% endblock %}
+{% block header_title %}Assessment & Exam Center{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-7xl mx-auto space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h3 class="font-bold text-white text-base">Course Evaluations & Quizzes</h3>
+      <p class="text-xs text-slate-400">
+        {% if current_user and current_user.role.value == 'ADMIN' %}
+        Manage exam papers, publish tests, and review question banks
+        {% else %}
+        Attempt published exams and view evaluation scores
+        {% endif %}
+      </p>
+    </div>
+
+    {% if current_user and current_user.role.value == 'ADMIN' %}
+    <button onclick="openCreateExamModal()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-indigo-600/20">
+      <i data-lucide="plus" class="w-4 h-4"></i>
+      <span>Create Manual Exam</span>
+    </button>
+    {% endif %}
+  </div>
+
+  <div class="glass-panel rounded-2xl border border-slate-800 p-5">
+    {% if exams | length == 0 %}
+    <div class="glass-panel rounded-2xl p-10 text-center flex flex-col items-center justify-center border border-slate-800/80 my-4">
+      <div class="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-400 mb-4 shadow-inner">
+        <i data-lucide="graduation-cap" class="w-8 h-8 text-indigo-400"></i>
+      </div>
+      <h3 class="font-bold text-white text-base mb-1">No Exams Available</h3>
+      <p class="text-xs text-slate-400 max-w-sm mb-6 leading-relaxed">There are currently no exams created or published in the system.</p>
+      {% if current_user and current_user.role.value == 'ADMIN' %}
+      <button onclick="openCreateExamModal()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-2">
+        <i data-lucide="plus" class="w-4 h-4"></i> Create First Exam
+      </button>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {% for ex in exams %}
+      <div class="glass-card p-5 rounded-2xl border border-slate-800 flex flex-col justify-between hover:border-indigo-500/30 transition-all">
+        <div>
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <div class="p-3 rounded-xl bg-emerald-600/20 text-emerald-400 border border-emerald-500/30">
+              <i data-lucide="graduation-cap" class="w-6 h-6"></i>
+            </div>
+
+            {% if current_user and current_user.role.value == 'ADMIN' %}
+            <select onchange="handleExamStatusChange('{{ ex.id }}', this.value)" class="text-[10px] font-bold px-2 py-1 rounded uppercase bg-slate-900 border {% if ex.status.value == 'PUBLISHED' %}border-emerald-500/40 text-emerald-300{% else %}border-amber-500/40 text-amber-300{% endif %}">
+              <option value="DRAFT" {% if ex.status.value == 'DRAFT' %}selected{% endif %}>DRAFT</option>
+              <option value="PUBLISHED" {% if ex.status.value == 'PUBLISHED' %}selected{% endif %}>PUBLISHED</option>
+              <option value="ARCHIVED" {% if ex.status.value == 'ARCHIVED' %}selected{% endif %}>ARCHIVED</option>
+            </select>
+            {% endif %}
+          </div>
+
+          <h4 class="font-bold text-white text-base mb-1">{{ ex.title }}</h4>
+          <p class="text-xs text-slate-400 line-clamp-2 mb-3">{{ ex.description or 'No description provided.' }}</p>
+
+          <div class="flex items-center gap-4 text-[11px] text-slate-400 font-medium border-t border-slate-800/80 pt-3">
+            <span class="flex items-center gap-1">
+              <i data-lucide="clock" class="w-3.5 h-3.5 text-indigo-400"></i> {{ ex.duration_minutes }} Mins
+            </span>
+            <span class="flex items-center gap-1">
+              <i data-lucide="award" class="w-3.5 h-3.5 text-amber-400"></i> Pass: {{ ex.passing_score }}%
+            </span>
+            <span>{{ ex.question_count or 0 }} Qs</span>
+          </div>
+        </div>
+
+        <div class="mt-5 pt-3 border-t border-slate-800 flex items-center justify-between">
+          {% if current_user and current_user.role.value == 'STUDENT' %}
+          <a href="/exams/{{ ex.id }}/take" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-500 hover:to-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-indigo-600/20">
+            <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i> Take Exam Now
+          </a>
+          {% else %}
+          <div class="flex items-center justify-between w-full">
+            <span class="text-[10px] text-slate-500">Source: {{ ex.source_document_name or 'Manual' }}</span>
+            <div class="flex items-center gap-1">
+              <button onclick="openEditExamModal('{{ ex.id }}', '{{ ex.title }}', '{{ ex.description or '' }}', {{ ex.duration_minutes }}, {{ ex.passing_score }}, '{{ ex.status.value }}')" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800" title="Edit Exam">
+                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+              </button>
+              <button onclick="handleDeleteExam('{{ ex.id }}', '{{ ex.title }}')" class="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-950/40" title="Delete Exam">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Create Manual Exam Modal -->
+<div id="create-exam-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm overflow-y-auto">
+  <div class="glass-panel w-full max-w-2xl rounded-3xl border border-slate-700/80 p-6 shadow-2xl relative max-h-[90vh] flex flex-col justify-between my-auto">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4 shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
+          <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-white text-base">Create Manual Assessment Paper</h3>
+          <p class="text-xs text-slate-400">Configure exam settings & add questions dynamically</p>
+        </div>
+      </div>
+      <button onclick="closeModal('create-exam-modal')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Form Validation Error Alert -->
+    <div id="create-exam-error-box" class="hidden mb-4 p-3.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2 shrink-0">
+      <i data-lucide="alert-circle" class="w-4 h-4 text-rose-400 shrink-0"></i>
+      <span id="create-exam-error-msg"></span>
+    </div>
+
+    <form onsubmit="handleCreateExamSubmit(event)" class="space-y-4 text-xs overflow-y-auto flex-1 pr-1">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="sm:col-span-2">
+          <label class="block text-slate-300 font-semibold mb-1">Exam Title <span class="text-rose-400">*</span></label>
+          <input type="text" id="exam-title" required placeholder="e.g. Midterm Evaluation: Fundamentals of Cybersecurity" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white">
+        </div>
+        <div class="sm:col-span-2">
+          <label class="block text-slate-300 font-semibold mb-1">Description</label>
+          <textarea id="exam-description" placeholder="Brief overview of evaluation scope and instructions..." class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white h-16"></textarea>
+        </div>
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Duration (Minutes) <span class="text-rose-400">*</span></label>
+          <input type="number" id="exam-duration" value="30" min="1" required class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white">
+        </div>
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Passing Score (%) <span class="text-rose-400">*</span></label>
+          <input type="number" id="exam-passing" value="70" min="0" max="100" required class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white">
+        </div>
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Initial Status</label>
+          <select id="exam-status" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white">
+            <option value="DRAFT">DRAFT (Hidden from Students)</option>
+            <option value="PUBLISHED">PUBLISHED (Live for Students)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Question Bank Builder -->
+      <div class="pt-4 border-t border-slate-800 space-y-3">
+        <div class="flex items-center justify-between">
+          <h4 class="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="help-circle" class="w-4 h-4 text-indigo-400"></i>
+            Question Bank (<span id="q-count-badge">0</span> Questions)
+          </h4>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="addQuestion('MCQ')" class="px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-[11px] font-semibold flex items-center gap-1">
+              + MCQ
+            </button>
+            <button type="button" onclick="addQuestion('TrueFalse')" class="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-[11px] font-semibold flex items-center gap-1">
+              + True/False
+            </button>
+            <button type="button" onclick="addQuestion('ShortAnswer')" class="px-2.5 py-1 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-[11px] font-semibold flex items-center gap-1">
+              + Short Answer
+            </button>
+          </div>
+        </div>
+
+        <div id="questions-builder-container" class="space-y-4">
+          <!-- Dynamic question cards rendered JS -->
+        </div>
+      </div>
+
+      <div class="pt-4 border-t border-slate-800 flex items-center gap-3 shrink-0">
+        <button type="button" onclick="closeModal('create-exam-modal')" class="w-1/3 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold">
+          Cancel
+        </button>
+        <button type="submit" id="create-exam-submit-btn" class="w-2/3 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30">
+          <i data-lucide="check" class="w-4 h-4"></i> Save Exam Paper
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Exam Modal -->
+<div id="edit-exam-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+  <div class="glass-panel w-full max-w-lg rounded-3xl border border-slate-700/80 p-6 shadow-2xl relative">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+      <h3 class="font-bold text-white text-base">Edit Exam Configuration</h3>
+      <button onclick="closeModal('edit-exam-modal')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <form onsubmit="handleEditExamSubmit(event)" class="space-y-4 text-xs">
+      <input type="hidden" id="edit-exam-id">
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Exam Title</label>
+        <input type="text" id="edit-exam-title" required class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white">
+      </div>
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Description</label>
+        <textarea id="edit-exam-description" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white h-16"></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Duration (Mins)</label>
+          <input type="number" id="edit-exam-duration" required class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white">
+        </div>
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Passing Score (%)</label>
+          <input type="number" id="edit-exam-passing" required class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white">
+        </div>
+      </div>
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Status</label>
+        <select id="edit-exam-status" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white">
+          <option value="DRAFT">DRAFT</option>
+          <option value="PUBLISHED">PUBLISHED</option>
+          <option value="ARCHIVED">ARCHIVED</option>
+        </select>
+      </div>
+      <button type="submit" class="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold">Save Exam Changes</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let manualQuestions = [];
+
+  function openCreateExamModal() {
+    manualQuestions = [];
+    document.getElementById('exam-title').value = '';
+    document.getElementById('exam-description').value = '';
+    document.getElementById('exam-duration').value = '30';
+    document.getElementById('exam-passing').value = '70';
+    document.getElementById('exam-status').value = 'DRAFT';
+    document.getElementById('create-exam-error-box').classList.add('hidden');
+    
+    // Add 1 default MCQ question to start
+    addQuestion('MCQ');
+    openModal('create-exam-modal');
+  }
+
+  function addQuestion(type) {
+    const qObj = {
+      id: Date.now() + Math.random(),
+      question_type: type,
+      question_text: '',
+      option_a: type === 'MCQ' ? '' : (type === 'TrueFalse' ? 'True' : ''),
+      option_b: type === 'MCQ' ? '' : (type === 'TrueFalse' ? 'False' : ''),
+      option_c: type === 'MCQ' ? '' : '',
+      option_d: type === 'MCQ' ? '' : '',
+      correct_option: type === 'MCQ' ? 'A' : (type === 'TrueFalse' ? 'True' : ''),
+      points: 1.0,
+      explanation: ''
+    };
+    manualQuestions.push(qObj);
+    renderQuestions();
+  }
+
+  function removeQuestion(index) {
+    manualQuestions.splice(index, 1);
+    renderQuestions();
+  }
+
+  function renderQuestions() {
+    const container = document.getElementById('questions-builder-container');
+    const badge = document.getElementById('q-count-badge');
+    if (badge) badge.innerText = manualQuestions.length;
+
+    if (!container) return;
+
+    if (manualQuestions.length === 0) {
+      container.innerHTML = '<p class="text-slate-500 text-center py-4 italic">No questions added yet. Click buttons above to add questions.</p>';
+      return;
+    }
+
+    container.innerHTML = manualQuestions.map((q, idx) => `
+      <div class="glass-card p-4 rounded-xl border border-slate-800 space-y-3 relative">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-indigo-400 text-xs">Question ${idx + 1} (${q.question_type})</span>
+          <button type="button" onclick="removeQuestion(${idx})" class="text-rose-400 hover:text-rose-300 text-xs font-medium flex items-center gap-1">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Remove
+          </button>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Question Text <span class="text-rose-400">*</span></label>
+          <input type="text" value="${q.question_text}" oninput="manualQuestions[${idx}].question_text = this.value" placeholder="Enter question..." class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white">
+        </div>
+
+        ${q.question_type === 'MCQ' ? `
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-slate-400 text-[11px] mb-0.5">Option A <span class="text-rose-400">*</span></label>
+              <input type="text" value="${q.option_a}" oninput="manualQuestions[${idx}].option_a = this.value" placeholder="Option A text" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white">
+            </div>
+            <div>
+              <label class="block text-slate-400 text-[11px] mb-0.5">Option B <span class="text-rose-400">*</span></label>
+              <input type="text" value="${q.option_b}" oninput="manualQuestions[${idx}].option_b = this.value" placeholder="Option B text" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white">
+            </div>
+            <div>
+              <label class="block text-slate-400 text-[11px] mb-0.5">Option C</label>
+              <input type="text" value="${q.option_c}" oninput="manualQuestions[${idx}].option_c = this.value" placeholder="Option C text" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white">
+            </div>
+            <div>
+              <label class="block text-slate-400 text-[11px] mb-0.5">Option D</label>
+              <input type="text" value="${q.option_d}" oninput="manualQuestions[${idx}].option_d = this.value" placeholder="Option D text" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Correct Answer</label>
+              <select onchange="manualQuestions[${idx}].correct_option = this.value" class="w-full px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-bold text-indigo-400">
+                <option value="A" ${q.correct_option === 'A' ? 'selected' : ''}>Option A</option>
+                <option value="B" ${q.correct_option === 'B' ? 'selected' : ''}>Option B</option>
+                <option value="C" ${q.correct_option === 'C' ? 'selected' : ''}>Option C</option>
+                <option value="D" ${q.correct_option === 'D' ? 'selected' : ''}>Option D</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Points / Marks</label>
+              <input type="number" value="${q.points}" oninput="manualQuestions[${idx}].points = parseFloat(this.value) || 1.0" min="0.5" step="0.5" class="w-full px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-white">
+            </div>
+          </div>
+        ` : (q.question_type === 'TrueFalse' ? `
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Correct Answer</label>
+              <select onchange="manualQuestions[${idx}].correct_option = this.value" class="w-full px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-bold text-emerald-400">
+                <option value="True" ${q.correct_option === 'True' ? 'selected' : ''}>True</option>
+                <option value="False" ${q.correct_option === 'False' ? 'selected' : ''}>False</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Points / Marks</label>
+              <input type="number" value="${q.points}" oninput="manualQuestions[${idx}].points = parseFloat(this.value) || 1.0" min="0.5" step="0.5" class="w-full px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-white">
+            </div>
+          </div>
+        ` : `
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Expected Answer Keyword</label>
+              <input type="text" value="${q.correct_option}" oninput="manualQuestions[${idx}].correct_option = this.value" placeholder="Model answer or keyword" class="w-full px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-white">
+            </div>
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Points / Marks</label>
+              <input type="number" value="${q.points}" oninput="manualQuestions[${idx}].points = parseFloat(this.value) || 1.0" min="0.5" step="0.5" class="w-full px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-white">
+            </div>
+          </div>
+        `)}
+      </div>
+    `).join('');
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  async function handleCreateExamSubmit(e) {
+    e.preventDefault();
+
+    const title = document.getElementById('exam-title').value.trim();
+    const description = document.getElementById('exam-description').value.trim();
+    const duration = parseInt(document.getElementById('exam-duration').value);
+    const passing = parseFloat(document.getElementById('exam-passing').value);
+    const status = document.getElementById('exam-status').value;
+    const errBox = document.getElementById('create-exam-error-box');
+    const errMsg = document.getElementById('create-exam-error-msg');
+    const btn = document.getElementById('create-exam-submit-btn');
+
+    errBox.classList.add('hidden');
+
+    // Validation checks
+    if (!title) {
+      errMsg.innerText = 'Exam Title is required.';
+      errBox.classList.remove('hidden');
+      return;
+    }
+    if (!duration || duration <= 0) {
+      errMsg.innerText = 'Duration must be greater than 0 minutes.';
+      errBox.classList.remove('hidden');
+      return;
+    }
+    if (isNaN(passing) || passing < 0 || passing > 100) {
+      errMsg.innerText = 'Passing score must be between 0 and 100%.';
+      errBox.classList.remove('hidden');
+      return;
+    }
+
+    if (manualQuestions.length === 0) {
+      errMsg.innerText = 'Please add at least 1 question to the exam paper.';
+      errBox.classList.remove('hidden');
+      return;
+    }
+
+    // Validate each question
+    for (let i = 0; i < manualQuestions.length; i++) {
+      const q = manualQuestions[i];
+      if (!q.question_text.trim()) {
+        errMsg.innerText = `Question #${i + 1} text cannot be empty.`;
+        errBox.classList.remove('hidden');
+        return;
+      }
+      if (q.question_type === 'MCQ' && (!q.option_a.trim() || !q.option_b.trim())) {
+        errMsg.innerText = `Question #${i + 1} (MCQ) requires Option A and Option B.`;
+        errBox.classList.remove('hidden');
+        return;
+      }
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Saving Exam...';
+    if (window.lucide) lucide.createIcons();
+
+    try {
+      const res = await apiFetch('/exams', {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          description,
+          duration_minutes: duration,
+          passing_score: passing,
+          status,
+          questions: manualQuestions.map(q => ({
+            question_type: q.question_type,
+            question_text: q.question_text.trim(),
+            option_a: q.option_a ? q.option_a.trim() : null,
+            option_b: q.option_b ? q.option_b.trim() : null,
+            option_c: q.option_c ? q.option_c.trim() : null,
+            option_d: q.option_d ? q.option_d.trim() : null,
+            correct_option: q.correct_option ? q.correct_option.trim() : 'A',
+            explanation: q.explanation ? q.explanation.trim() : null,
+            points: q.points || 1.0
+          }))
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        errMsg.innerText = data.detail || 'Failed to create exam';
+        errBox.classList.remove('hidden');
+        return;
+      }
+
+      alert('Exam created successfully!');
+      window.location.reload();
+    } catch (err) {
+      errMsg.innerText = 'Server connection error saving exam.';
+      errBox.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Save Exam Paper';
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+
+  function openEditExamModal(id, title, description, duration, passing, status) {
+    document.getElementById('edit-exam-id').value = id;
+    document.getElementById('edit-exam-title').value = title;
+    document.getElementById('edit-exam-description').value = description;
+    document.getElementById('edit-exam-duration').value = duration;
+    document.getElementById('edit-exam-passing').value = passing;
+    document.getElementById('edit-exam-status').value = status;
+    openModal('edit-exam-modal');
+  }
+
+  async function handleEditExamSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('edit-exam-id').value;
+    try {
+      const res = await apiFetch(`/exams/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          title: document.getElementById('edit-exam-title').value,
+          description: document.getElementById('edit-exam-description').value,
+          duration_minutes: parseInt(document.getElementById('edit-exam-duration').value),
+          passing_score: parseFloat(document.getElementById('edit-exam-passing').value),
+          status: document.getElementById('edit-exam-status').value
+        })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.detail || 'Error updating exam');
+        return;
+      }
+      window.location.reload();
+    } catch (err) {
+      alert('Error updating exam');
+    }
+  }
+
+  async function handleExamStatusChange(id, newStatus) {
+    try {
+      const res = await apiFetch(`/exams/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (!res.ok) {
+        alert('Error updating exam status');
+        return;
+      }
+      window.location.reload();
+    } catch (err) {
+      alert('Error updating exam status');
+    }
+  }
+
+  async function handleDeleteExam(id, title) {
+    if (confirm(`Delete exam '${title}'?`)) {
+      try {
+        const res = await apiFetch(`/exams/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          alert('Error deleting exam');
+          return;
+        }
+        window.location.reload();
+      } catch (err) {
+        alert('Error deleting exam');
+      }
+    }
+  }
+</script>
+{% endblock %}

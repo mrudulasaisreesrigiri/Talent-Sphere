@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Knowledge Search | Talent Management Platform for Employee Performance and Career Growth{% endblock %}
+{% block header_title %}Semantic Knowledge Search{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-5xl mx-auto space-y-6">
+  <div class="text-center py-6">
+    <div class="w-12 h-12 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 mx-auto flex items-center justify-center mb-3">
+      <i data-lucide="database" class="w-6 h-6"></i>
+    </div>
+    <h2 class="text-xl font-bold text-white tracking-tight">ChromaDB Vector Repository Search</h2>
+    <p class="text-xs text-slate-400 max-w-md mx-auto mt-1">
+      Perform natural language similarity queries across all ingested enterprise PDF study documents.
+    </p>
+  </div>
+
+  <!-- Search Bar Form -->
+  <form onsubmit="handleKnowledgeSearch(event)" class="glass-panel p-3 rounded-2xl border border-slate-800 flex items-center gap-3">
+    <div class="relative flex-1">
+      <i data-lucide="search" class="w-5 h-5 text-slate-400 absolute left-4 top-3.5"></i>
+      <input type="text" id="search-query-input" placeholder="e.g. What are the mandatory security protocols for user authentication?" class="w-full pl-12 pr-4 py-3 bg-slate-900/80 border border-slate-800 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+    </div>
+    <button type="submit" id="search-submit-btn" class="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-indigo-600/30">
+      <i data-lucide="sparkles" class="w-4 h-4"></i> Search Vector Store
+    </button>
+  </form>
+
+  <!-- Search Results Container -->
+  <div id="search-results-container" class="space-y-4">
+    <!-- Search results populated dynamically -->
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function handleKnowledgeSearch(e) {
+    e.preventDefault();
+    const query = document.getElementById('search-query-input').value.trim();
+    const btn = document.getElementById('search-submit-btn');
+    const container = document.getElementById('search-results-container');
+
+    if (!query) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Searching Vector Store...';
+    if (window.lucide) lucide.createIcons();
+
+    container.innerHTML = '<div class="p-12 text-center text-slate-400 text-xs flex flex-col items-center gap-2"><i data-lucide="loader-2" class="w-6 h-6 animate-spin text-indigo-500"></i> Calculating vector embeddings & performing similarity search...</div>';
+    if (window.lucide) lucide.createIcons();
+
+    try {
+      const res = await apiFetch(`/search?q=${encodeURIComponent(query)}`);
+      const results = await res.json();
+
+      if (results.length === 0) {
+        container.innerHTML = `
+          <div class="glass-panel p-8 rounded-2xl text-center border border-slate-800">
+            <i data-lucide="file-text" class="w-8 h-8 text-slate-500 mx-auto mb-2"></i>
+            <p class="font-bold text-white text-sm">No matching document chunks found</p>
+            <p class="text-xs text-slate-400 mt-1">Try refining your search keywords or upload additional reference documents.</p>
+          </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+        return;
+      }
+
+      container.innerHTML = results.map(r => `
+        <div class="glass-card p-5 rounded-2xl border border-slate-800 hover:border-indigo-500/30 transition-all">
+          <div class="flex items-center justify-between gap-3 mb-2">
+            <div class="flex items-center gap-2">
+              <i data-lucide="file-text" class="w-4 h-4 text-indigo-400"></i>
+              <span class="font-bold text-white text-sm">${r.document_title}</span>
+              <span class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                Page ${r.page_number}
+              </span>
+            </div>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              ${(r.score * 100).toFixed(1)}% Match
+            </span>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-3 rounded-xl border border-slate-900 font-mono">
+            "${r.content}"
+          </p>
+        </div>
+      `).join('');
+
+      if (window.lucide) lucide.createIcons();
+    } catch (err) {
+      container.innerHTML = '<p class="text-xs text-rose-400 text-center">Error performing search</p>';
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="sparkles" class="w-4 h-4"></i> Search Vector Store';
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+</script>
+{% endblock %}

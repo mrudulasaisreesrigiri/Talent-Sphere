@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Documents | Talent Management Platform for Employee Performance and Career Growth{% endblock %}
+{% block header_title %}Knowledge Document Repository{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-7xl mx-auto space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h3 class="font-bold text-white text-base">Uploaded Study Materials</h3>
+      <p class="text-xs text-slate-400">PDF documents indexed into ChromaDB vector store</p>
+    </div>
+
+    {% if current_user and current_user.role.value == 'ADMIN' %}
+    <button onclick="openModal('upload-doc-modal')" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-indigo-600/20">
+      <i data-lucide="upload" class="w-4 h-4"></i>
+      <span>Upload PDF Document</span>
+    </button>
+    {% endif %}
+  </div>
+
+  <div class="glass-panel rounded-2xl border border-slate-800 overflow-hidden">
+    {% if documents | length == 0 %}
+    <div class="glass-panel rounded-2xl p-10 text-center flex flex-col items-center justify-center border border-slate-800/80 my-4">
+      <div class="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-400 mb-4 shadow-inner">
+        <i data-lucide="file-text" class="w-8 h-8 text-indigo-400"></i>
+      </div>
+      <h3 class="font-bold text-white text-base mb-1">No Documents Uploaded</h3>
+      <p class="text-xs text-slate-400 max-w-sm mb-6 leading-relaxed">The knowledge base is currently empty. Administrators can upload PDF files to populate the vector search index.</p>
+      {% if current_user and current_user.role.value == 'ADMIN' %}
+      <button onclick="openModal('upload-doc-modal')" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-2">
+        <i data-lucide="upload" class="w-4 h-4"></i> Upload First PDF
+      </button>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5">
+      {% for doc in documents %}
+      <div class="glass-card p-4 rounded-xl border border-slate-800 flex flex-col justify-between hover:border-indigo-500/30 transition-all">
+        <div>
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <div class="p-3 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
+              <i data-lucide="file-text" class="w-6 h-6"></i>
+            </div>
+            <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+              <i data-lucide="database" class="w-3 h-3"></i>
+              {{ doc.chunk_count or 0 }} Chunks
+            </span>
+          </div>
+
+          <div class="flex items-center gap-2 mb-1">
+            <h4 class="font-bold text-white text-sm truncate flex-1" title="{{ doc.title }}">{{ doc.title }}</h4>
+            {% if doc.is_study_plan_doc %}
+            <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+              Study Plan ✅
+            </span>
+            {% endif %}
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">
+            Size: {{ (doc.file_size / (1024 * 1024)) | round(2) }} MB • {{ doc.created_at.strftime('%Y-%m-%d') if doc.created_at else '' }}
+          </p>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <button onclick="viewDocumentPdf('{{ doc.id }}')" class="px-2.5 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer" title="View PDF in browser">
+              <i data-lucide="eye" class="w-3.5 h-3.5"></i> View
+            </button>
+            <button onclick="downloadDocument('{{ doc.id }}')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer" title="Download PDF">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+
+          {% if current_user and current_user.role.value == 'ADMIN' %}
+          <div class="flex items-center gap-1">
+            <button onclick="openRenameModal('{{ doc.id }}', '{{ doc.title }}')" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800" title="Rename PDF">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+            </button>
+            <button onclick="handleDeleteDoc('{{ doc.id }}', '{{ doc.title }}')" class="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-950/40" title="Delete PDF">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Upload Modal -->
+<div id="upload-doc-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+  <div class="glass-panel w-full max-w-lg rounded-3xl border border-slate-700/80 p-6 shadow-2xl relative">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+      <h3 class="font-bold text-white text-base">Upload PDF Study Document</h3>
+      <button onclick="closeModal('upload-doc-modal')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <form onsubmit="handleUploadDocSubmit(event)" class="space-y-4 text-xs">
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Document Display Title</label>
+        <input type="text" id="upload-doc-title" required placeholder="e.g. Advanced Cybersecurity Framework 2026" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white">
+      </div>
+
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Select PDF File</label>
+        <div class="border-2 border-dashed border-slate-700 rounded-xl p-6 text-center hover:border-indigo-500 transition-colors">
+          <input type="file" id="upload-doc-file" accept=".pdf" required class="hidden" onchange="updateFileNameLabel(this)">
+          <label for="upload-doc-file" class="cursor-pointer flex flex-col items-center gap-2">
+            <i data-lucide="file-up" class="w-8 h-8 text-indigo-400"></i>
+            <span id="file-name-label" class="text-slate-300 font-medium">Click to browse PDF file</span>
+            <span class="text-[10px] text-slate-500">Only PDF formats supported up to 50MB</span>
+          </label>
+        </div>
+      </div>
+
+      <button type="submit" id="upload-submit-btn" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold flex items-center justify-center gap-2">
+        Upload & Index into ChromaDB
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Rename Modal -->
+<div id="rename-doc-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+  <div class="glass-panel w-full max-w-lg rounded-3xl border border-slate-700/80 p-6 shadow-2xl relative">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+      <h3 class="font-bold text-white text-base">Rename Document</h3>
+      <button onclick="closeModal('rename-doc-modal')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <form onsubmit="handleRenameDocSubmit(event)" class="space-y-4 text-xs">
+      <input type="hidden" id="rename-doc-id">
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">New Document Title</label>
+        <input type="text" id="rename-doc-title" required class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white">
+      </div>
+      <button type="submit" class="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold">Save Title</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function downloadDocument(docId) {
+    const token = typeof getToken === 'function' ? getToken() : '';
+    const url = `/api/documents/${docId}/download?token=${encodeURIComponent(token)}`;
+    window.open(url, '_blank');
+  }
+
+  function updateFileNameLabel(input) {
+    const label = document.getElementById('file-name-label');
+    if (input.files && input.files[0]) {
+      label.innerText = input.files[0].name;
+    }
+  }
+
+  async function handleUploadDocSubmit(e) {
+    e.preventDefault();
+    const title = document.getElementById('upload-doc-title').value;
+    const fileInput = document.getElementById('upload-doc-file');
+    const btn = document.getElementById('upload-submit-btn');
+
+    if (!fileInput.files[0]) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processing & Vector Indexing...';
+    if (window.lucide) lucide.createIcons();
+
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('file', fileInput.files[0]);
+
+    try {
+      const res = await apiFetch('/documents/upload', {
+        method: 'POST',
+        body: formData
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.detail || 'Upload failed');
+        return;
+      }
+      window.location.reload();
+    } catch (err) {
+      alert('Upload failed');
+    } finally {
+      btn.disabled = false;
+      btn.innerText = 'Upload & Index into ChromaDB';
+    }
+  }
+
+  function openRenameModal(id, currentTitle) {
+    document.getElementById('rename-doc-id').value = id;
+    document.getElementById('rename-doc-title').value = currentTitle;
+    openModal('rename-doc-modal');
+  }
+
+  async function handleRenameDocSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('rename-doc-id').value;
+    const newTitle = document.getElementById('rename-doc-title').value;
+
+    try {
+      const res = await apiFetch(`/documents/${id}/rename`, {
+        method: 'PUT',
+        body: JSON.stringify({ title: newTitle })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.detail || 'Rename failed');
+        return;
+      }
+      window.location.reload();
+    } catch (err) {
+      alert('Rename failed');
+    }
+  }
+
+  async function handleDeleteDoc(id, title) {
+    if (confirm(`Are you sure you want to delete document '${title}'?`)) {
+      try {
+        const res = await apiFetch(`/documents/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const data = await res.json();
+          alert(data.detail || 'Delete failed');
+          return;
+        }
+        window.location.reload();
+      } catch (err) {
+        alert('Delete failed');
+      }
+    }
+  }
+
+  function viewDocumentPdf(docId) {
+    const token = getToken();
+    const viewUrl = `/api/documents/${docId}/view?token=${encodeURIComponent(token)}`;
+    window.open(viewUrl, '_blank');
+  }
+</script>
+{% endblock %}

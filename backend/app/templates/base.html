@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Talent Management Platform for Employee Performance and Career Growth{% endblock %}</title>
+
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem('app-theme');
+        if (saved === 'light' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+          document.documentElement.classList.remove('dark');
+          document.documentElement.classList.add('light');
+          document.documentElement.setAttribute('data-theme', 'light');
+        } else {
+          document.documentElement.classList.remove('light');
+          document.documentElement.classList.add('dark');
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) {}
+    })();
+  </script>
+
+  <!-- Tailwind CSS & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Marked.js & Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body class="bg-[#090d16] text-slate-100 min-h-screen flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+
+  {% if current_user %}
+  <!-- App Layout Container -->
+  <div class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar Navigation -->
+    <aside class="w-64 glass-panel border-r border-slate-800/80 flex flex-col justify-between hidden md:flex shrink-0 z-20">
+      <div class="p-5 flex flex-col h-full overflow-hidden">
+
+        <!-- Logo / Brand -->
+        <a href="{% if current_user.role.value == 'ADMIN' %}/admin-dashboard{% else %}/user-dashboard{% endif %}" class="flex items-center gap-3 mb-8 px-2">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 font-black text-xs tracking-wider shrink-0">
+            TMP
+          </div>
+          <div class="overflow-hidden">
+            <h1 class="font-extrabold text-white text-xs tracking-tight leading-tight">Talent Management Platform</h1>
+            <span class="text-[9px] font-bold text-indigo-400 block leading-tight">for Employee Performance & Growth</span>
+          </div>
+        </a>
+
+        <!-- Navigation Links -->
+        <nav class="space-y-1.5 overflow-y-auto flex-1 pr-1">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 mb-2">Main Menu</p>
+
+          {% if current_user.role.value == 'ADMIN' %}
+          <a href="/admin-dashboard" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all {% if request.path in ['/admin-dashboard', '/admin/dashboard'] %}bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 shadow-md shadow-indigo-600/10{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+            <i data-lucide="layout-dashboard" class="w-4 h-4 text-indigo-400"></i>
+            <span>Admin Control Panel</span>
+          </a>
+          <a href="/admin/users" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all {% if request.path in ['/admin/users', '/user-management'] %}bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 shadow-md shadow-indigo-600/10{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+            <i data-lucide="users" class="w-4 h-4 text-indigo-400"></i>
+            <span>User Management</span>
+          </a>
+          {% else %}
+          <a href="/user-dashboard" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all {% if request.path in ['/user-dashboard', '/dashboard', '/home'] %}bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 shadow-md shadow-indigo-600/10{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+            <i data-lucide="home" class="w-4 h-4 text-indigo-400"></i>
+            <span>Home Page</span>
+          </a>
+          {% endif %}
+
+          <a href="/study-plans" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all {% if request.path == '/study-plans' %}bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 shadow-md shadow-indigo-600/10{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+            <i data-lucide="book-open" class="w-4 h-4 text-indigo-400"></i>
+            <span>Study Plans & Lessons</span>
+          </a>
+
+          <a href="/search" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all {% if request.path in ['/search', '/knowledge-search'] %}bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 shadow-md shadow-indigo-600/10{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+            <i data-lucide="search" class="w-4 h-4 text-indigo-400"></i>
+            <span>Knowledge Search</span>
+          </a>
+
+          <a href="/ai-assistant" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all {% if request.path == '/ai-assistant' %}bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 shadow-md shadow-indigo-600/10{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+            <i data-lucide="bot" class="w-4 h-4 text-indigo-400"></i>
+            <span>AI Learning Assistant</span>
+          </a>
+
+          <a href="/exams" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all {% if request.path == '/exams' %}bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 shadow-md shadow-indigo-600/10{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+            <i data-lucide="graduation-cap" class="w-4 h-4 text-indigo-400"></i>
+            <span>{% if current_user.role.value == 'ADMIN' %}Exam Management{% else %}Take Exams{% endif %}</span>
+          </a>
+
+          <a href="/announcements" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all {% if request.path == '/announcements' %}bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 shadow-md shadow-indigo-600/10{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+            <i data-lucide="megaphone" class="w-4 h-4 text-indigo-400"></i>
+            <span>Announcements</span>
+          </a>
+
+          {% if current_user.role.value == 'ADMIN' %}
+          <a href="/admin/audit-logs" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all {% if request.path == '/admin/audit-logs' %}bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 shadow-md shadow-indigo-600/10{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">
+            <i data-lucide="shield-check" class="w-4 h-4 text-indigo-400"></i>
+            <span>Audit Logs</span>
+          </a>
+          {% endif %}
+        </nav>
+
+        <!-- Sidebar Footer / Logout -->
+        <div class="pt-4 border-t border-slate-800/80 space-y-2">
+          <a href="/profile" class="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+            <i data-lucide="user" class="w-4 h-4"></i>
+            <span>My Profile</span>
+          </a>
+          <button onclick="logout()" class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Content Workspace -->
+    <div class="flex-1 flex flex-col h-full overflow-hidden bg-[#0b0f19]">
+
+      <!-- Header Topbar -->
+      <header class="h-16 glass-panel border-b border-slate-800/80 px-6 flex items-center justify-between shrink-0 z-10">
+        <div>
+          <h2 class="font-bold text-white text-sm">{% block header_title %}Talent Management Platform for Employee Performance and Career Growth{% endblock %}</h2>
+          <p class="text-xs text-slate-400">Talent Management Platform for Employee Performance and Career Growth</p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          {% if current_user and current_user.role.value == 'ADMIN' %}
+          <button onclick="openModal('ai-cmd-modal')" class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition-all shadow-sm">
+            <i data-lucide="terminal" class="w-4 h-4 text-cyan-400"></i>
+            <span class="hidden sm:inline">AI Commands</span>
+          </button>
+
+          <button onclick="openModal('voice-assistant-modal')" class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition-all shadow-sm">
+            <i data-lucide="mic" class="w-4 h-4 text-indigo-400 animate-pulse"></i>
+            <span class="hidden sm:inline">Voice Assistant</span>
+          </button>
+          {% endif %}
+
+          <!-- Notification Dropdown -->
+          <div class="relative">
+            <button onclick="toggleNotifDropdown()" class="relative p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white transition-colors border border-slate-700/60">
+              <i data-lucide="bell" class="w-5 h-5"></i>
+              <span id="notif-badge-count" class="hidden absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse border border-slate-900"></span>
+            </button>
+
+            <div id="notif-dropdown-menu" class="hidden absolute right-0 mt-3 w-80 sm:w-96 glass-panel rounded-2xl border border-slate-700/80 shadow-2xl z-50 overflow-hidden">
+              <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
+                <h3 class="font-semibold text-white text-sm">Notifications</h3>
+                <button onclick="markAllNotifsRead()" class="text-xs font-medium text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                  <i data-lucide="check-check" class="w-3.5 h-3.5"></i> Mark all read
+                </button>
+              </div>
+              <div id="notif-list-container" class="max-h-80 overflow-y-auto divide-y divide-slate-800/60">
+                <!-- Notifications Polled JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Theme Toggle Button -->
+          <button onclick="toggleTheme()" class="theme-toggle-btn p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white transition-all border border-slate-700/60 flex items-center justify-center cursor-pointer shadow-sm" title="Toggle Light / Dark Mode" data-theme-toggle>
+            <i data-lucide="sun" class="w-5 h-5 text-amber-400"></i>
+          </button>
+
+          <!-- User Avatar -->
+          <div class="flex items-center gap-3 pl-3 border-l border-slate-800">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-md">
+              {{ current_user.full_name[0] if current_user and current_user.full_name else 'U' }}
+            </div>
+            <div class="hidden md:block">
+              <p class="text-xs font-semibold text-white leading-tight">{{ current_user.full_name if current_user else '' }}</p>
+              <p class="text-[10px] font-medium text-slate-400 capitalize">{{ current_user.role.value.lower() if current_user and current_user.role else '' }}</p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Content Block -->
+      <main class="flex-1 overflow-y-auto min-h-0">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  {% else %}
+    {% block login_content %}{% endblock %}
+  {% endif %}
+
+  <!-- Voice Assistant Modal (Available for all authenticated users for RAG and Study Plan Mock Interviews) -->
+  {% if current_user %}
+  <div id="voice-assistant-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+    <div class="glass-panel w-full max-w-lg rounded-3xl border border-indigo-500/30 p-6 shadow-2xl relative overflow-hidden">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
+            <i data-lucide="sparkles" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 id="voice-modal-title" class="font-bold text-white text-base">Voice RAG Assistant</h3>
+            <p class="text-xs text-slate-400">Push-to-Talk AI Voice Companion</p>
+          </div>
+        </div>
+        <button onclick="closeModal('voice-assistant-modal')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="flex flex-col items-center justify-center my-8 gap-4">
+        <button id="voice-mic-btn" onclick="toggleVoiceListening()" class="w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl relative bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/50 hover:scale-105">
+          <i data-lucide="mic" class="w-10 h-10"></i>
+        </button>
+        <span id="voice-status-label" class="text-xs font-semibold uppercase tracking-wider text-slate-400">Tap Microphone to Speak</span>
+      </div>
+
+      <div id="voice-transcript-box" class="mb-4 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800">
+        <p class="text-xs font-semibold text-slate-400 mb-1">Your Voice Query / Response:</p>
+        <p id="voice-transcript-text" class="text-sm text-indigo-300 font-medium"></p>
+        <button id="voice-submit-btn" onclick="sendVoiceQuery()" class="hidden mt-3 w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs">
+          Process Voice Query
+        </button>
+      </div>
+
+      <div id="voice-response-box" class="hidden p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/20 text-slate-200 text-xs leading-relaxed max-h-40 overflow-y-auto">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-bold text-indigo-400">AI Response:</span>
+          <div id="voice-speech-ctrl"></div>
+        </div>
+        <p id="voice-response-text"></p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Admin AI Command Modal -->
+  {% if current_user and current_user.role.value == 'ADMIN' %}
+  <div id="ai-cmd-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+    <div class="glass-panel w-full max-w-xl rounded-3xl border border-indigo-500/30 p-6 shadow-2xl relative">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 rounded-xl bg-cyan-600/20 text-cyan-400 border border-cyan-500/30">
+            <i data-lucide="terminal" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-white text-base">Admin AI Command Center</h3>
+            <p class="text-xs text-slate-400">Execute automated AI actions across your LMS portal</p>
+          </div>
+        </div>
+        <button onclick="closeModal('ai-cmd-modal')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Enter AI Command Directive:</label>
+          <input type="text" id="ai-cmd-input" placeholder="e.g. Create Exam from DBMS.pdf" class="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500">
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1 text-[11px] text-slate-400">
+          <p class="font-semibold text-cyan-400">Supported Admin Commands:</p>
+          <p>• <code class="text-white">Create Exam from &lt;PDF Name&gt;</code> — Auto-generates MCQ/TF assessment paper.</p>
+          <p>• <code class="text-white">Create Announcement from &lt;PDF Name&gt;</code> — Generates executive update post.</p>
+        </div>
+
+        <div id="ai-cmd-status-box" class="hidden p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300"></div>
+
+        <button onclick="executeAiCommand()" class="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30">
+          Run Command Directive
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Core Scripts -->
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% if current_user %}
+  <script src="{{ url_for('static', filename='js/voice_assistant.js') }}"></script>
+  {% endif %}
+  <script>
+    if (window.lucide) {
+      lucide.createIcons();
+    }
+    if (typeof updateThemeToggleIcons === 'function') {
+      updateThemeToggleIcons(document.documentElement.classList.contains('light'));
+    }
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

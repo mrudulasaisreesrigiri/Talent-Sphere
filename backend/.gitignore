@@ -1,0 +1,21 @@
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+
+# Storage & Databases
+*.db
+*.sqlite3
+chroma_db/
+uploads/
+talent_sphere_elevate.db
+*.log

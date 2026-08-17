@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Announcements | Talent Management Platform for Employee Performance and Career Growth{% endblock %}
+{% block header_title %}System Announcements{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-5xl mx-auto space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h3 class="font-bold text-white text-base">Broadcast Bulletins</h3>
+      <p class="text-xs text-slate-400">Official updates, course announcements, and system alerts</p>
+    </div>
+
+    {% if current_user and current_user.role.value == 'ADMIN' %}
+    <button onclick="openModal('create-ann-modal')" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-indigo-600/20">
+      <i data-lucide="plus" class="w-4 h-4"></i>
+      <span>Create Announcement</span>
+    </button>
+    {% endif %}
+  </div>
+
+  <div class="glass-panel rounded-2xl border border-slate-800 p-5">
+    {% if announcements | length == 0 %}
+    <div class="glass-panel rounded-2xl p-10 text-center flex flex-col items-center justify-center border border-slate-800/80 my-4">
+      <div class="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-400 mb-4 shadow-inner">
+        <i data-lucide="megaphone" class="w-8 h-8 text-indigo-400"></i>
+      </div>
+      <h3 class="font-bold text-white text-base mb-1">No Announcements Posted</h3>
+      <p class="text-xs text-slate-400 max-w-sm mb-6 leading-relaxed">There are currently no public announcements available.</p>
+    </div>
+    {% else %}
+    <div class="space-y-4">
+      {% for ann in announcements %}
+      <div class="glass-card p-5 rounded-2xl border border-slate-800 hover:border-indigo-500/30 transition-all">
+        <div class="flex items-start justify-between gap-4 mb-2">
+          <div class="flex items-center gap-3">
+            <div class="p-2.5 rounded-xl bg-amber-600/20 text-amber-400 border border-amber-500/30">
+              <i data-lucide="megaphone" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h4 class="font-bold text-white text-base">{{ ann.title }}</h4>
+              <p class="text-[10px] text-slate-500">
+                Posted on {{ ann.created_at.strftime('%Y-%m-%d %H:%M') if ann.created_at else '' }} • {{ 'Source: ' + ann.source_document_name if ann.source_document_name else 'Manual Entry' }}
+              </p>
+            </div>
+          </div>
+
+          {% if current_user and current_user.role.value == 'ADMIN' %}
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {% if ann.is_published %}bg-emerald-500/20 text-emerald-300{% else %}bg-slate-800 text-slate-400{% endif %}">
+              {{ 'Published' if ann.is_published else 'Draft' }}
+            </span>
+            <button onclick="handleDeleteAnn('{{ ann.id }}', '{{ ann.title }}')" class="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-950/40">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+          {% endif %}
+        </div>
+
+        <p class="text-xs text-slate-300 whitespace-pre-line leading-relaxed pl-12 mt-2">
+          {{ ann.content }}
+        </p>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Create Announcement Modal -->
+<div id="create-ann-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+  <div class="glass-panel w-full max-w-lg rounded-3xl border border-slate-700/80 p-6 shadow-2xl relative">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+      <h3 class="font-bold text-white text-base">Create System Announcement</h3>
+      <button onclick="closeModal('create-ann-modal')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <form onsubmit="handleCreateAnnSubmit(event)" class="space-y-4 text-xs">
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Announcement Title</label>
+        <input type="text" id="ann-title" required placeholder="e.g. Schedule Update for End-of-Term Examinations" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white">
+      </div>
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Content Body</label>
+        <textarea id="ann-content" required class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white h-28"></textarea>
+      </div>
+      <div>
+        <label class="flex items-center gap-2 text-slate-300 font-semibold cursor-pointer">
+          <input type="checkbox" id="ann-published" checked class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-indigo-600">
+          <span>Publish Immediately & Broadcast Notification</span>
+        </label>
+      </div>
+      <button type="submit" class="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold">Post Announcement</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function handleCreateAnnSubmit(e) {
+    e.preventDefault();
+    try {
+      const res = await apiFetch('/announcements', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: document.getElementById('ann-title').value,
+          content: document.getElementById('ann-content').value,
+          is_published: document.getElementById('ann-published').checked
+        })
+      });
+      if (!res.ok) {
+        alert('Error posting announcement');
+        return;
+      }
+      window.location.reload();
+    } catch (err) {
+      alert('Error posting announcement');
+    }
+  }
+
+  async function handleDeleteAnn(id, title) {
+    if (confirm(`Delete announcement '${title}'?`)) {
+      try {
+        const res = await apiFetch(`/announcements/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          alert('Error deleting announcement');
+          return;
+        }
+        window.location.reload();
+      } catch (err) {
+        alert('Error deleting announcement');
+      }
+    }
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Taking Exam | {{ exam.title }}</title>
+
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem('app-theme');
+        if (saved === 'light' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+          document.documentElement.classList.remove('dark');
+          document.documentElement.classList.add('light');
+          document.documentElement.setAttribute('data-theme', 'light');
+        } else {
+          document.documentElement.classList.remove('light');
+          document.documentElement.classList.add('dark');
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) {}
+    })();
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body class="min-h-screen bg-[#090d16] text-slate-100 flex flex-col justify-between relative">
+  <!-- 1. Fullscreen Required Modal Before Exam Starts -->
+  <div id="fullscreen-start-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+    <div class="glass-panel w-full max-w-md rounded-3xl border border-indigo-500/30 p-8 shadow-2xl text-center space-y-6">
+      <div class="w-16 h-16 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 mx-auto flex items-center justify-center shadow-lg">
+        <i data-lucide="maximize-2" class="w-8 h-8 animate-pulse"></i>
+      </div>
+
+      <div>
+        <span class="text-[11px] font-bold text-amber-400 uppercase tracking-wider block mb-1">
+          Exam not started
+        </span>
+        <h2 class="text-xl font-extrabold text-white">
+          Fullscreen Mode Required
+        </h2>
+        <p class="text-xs text-slate-300 mt-2 leading-relaxed">
+          Please enter fullscreen mode to start the exam.
+        </p>
+      </div>
+
+      <div class="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 text-[11px] text-slate-400 space-y-1.5 text-left">
+        <p class="font-semibold text-indigo-300 flex items-center gap-1.5">
+          <i data-lucide="shield-check" class="w-3.5 h-3.5 text-indigo-400"></i> Assessment Rules:
+        </p>
+        <p>• The exam timer will begin immediately upon entering fullscreen.</p>
+        <p>• The assessment must remain in fullscreen mode until submission.</p>
+      </div>
+
+      <div id="fullscreen-error-msg" class="hidden p-3 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2 text-left">
+        <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0 text-rose-400"></i>
+        <span id="fullscreen-error-text"></span>
+      </div>
+
+      <button onclick="enterFullscreenAndStart()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-500 hover:to-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all cursor-pointer hover:scale-[1.02]">
+        <i data-lucide="maximize-2" class="w-4 h-4"></i> Go to Fullscreen Mode
+      </button>
+    </div>
+  </div>
+
+  <!-- 2. Fullscreen Exit Warning Modal (If user exits fullscreen during exam) -->
+  <div id="fullscreen-pause-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+    <div class="glass-panel w-full max-w-md rounded-3xl border border-amber-500/40 p-8 shadow-2xl text-center space-y-6">
+      <div class="w-16 h-16 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 mx-auto flex items-center justify-center shadow-lg">
+        <i data-lucide="alert-triangle" class="w-8 h-8 animate-bounce"></i>
+      </div>
+
+      <div>
+        <span class="text-[11px] font-bold text-amber-400 uppercase tracking-wider block mb-1">
+          Exam Paused
+        </span>
+        <h2 class="text-xl font-extrabold text-white">
+          Fullscreen Exited
+        </h2>
+        <p class="text-xs text-slate-300 mt-2 leading-relaxed">
+          This exam requires active fullscreen mode. Please return to fullscreen mode to continue your assessment.
+        </p>
+      </div>
+
+      <button onclick="returnToFullscreen()" class="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all cursor-pointer">
+        <i data-lucide="maximize-2" class="w-4 h-4"></i> Return to Fullscreen
+      </button>
+    </div>
+  </div>
+
+  <!-- Header Bar -->
+  <header class="glass-panel px-6 py-4 border-b border-slate-800 flex items-center justify-between sticky top-0 z-30">
+    <div>
+      <h2 class="font-bold text-white text-base">{{ exam.title }}</h2>
+      <p class="text-xs text-slate-400">Passing Threshold: {{ exam.passing_score }}%</p>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <div id="exam-timer-badge" class="flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-sm font-bold border bg-slate-900 border-slate-800 text-indigo-400">
+        <i data-lucide="clock" class="w-4 h-4"></i>
+        <span id="exam-timer-text">00:00</span>
+      </div>
+
+      <button onclick="toggleTheme()" class="theme-toggle-btn p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white cursor-pointer shadow-sm" title="Toggle Light / Dark Mode" data-theme-toggle>
+        <i data-lucide="sun" class="w-4 h-4 text-amber-400"></i>
+      </button>
+
+      <button onclick="toggleFullscreen()" class="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white cursor-pointer" title="Toggle Fullscreen">
+        <i data-lucide="maximize-2" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Question Workspace -->
+  <main class="flex-1 max-w-4xl mx-auto w-full p-6 space-y-6">
+    <!-- Question Navigation Buttons -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-2" id="q-nav-buttons">
+      {% for q in questions %}
+      <button onclick="jumpToQuestion({{ loop.index0 }})" id="q-nav-{{ loop.index0 }}" class="w-9 h-9 rounded-xl font-bold text-xs shrink-0 transition-all {% if loop.first %}bg-indigo-600 text-white shadow-lg shadow-indigo-600/30{% else %}bg-slate-900 border border-slate-800 text-slate-400 hover:bg-slate-800{% endif %}">
+        {{ loop.index }}
+      </button>
+      {% endfor %}
+    </div>
+
+    <!-- Active Question Container -->
+    <div id="active-question-card" class="glass-panel p-8 rounded-3xl border border-slate-800 space-y-6 shadow-xl">
+      <!-- Active Question Populated JS -->
+    </div>
+
+    <!-- Exam Result View (Hidden until submit) -->
+    <div id="exam-result-card" class="hidden glass-panel p-8 rounded-3xl max-w-2xl mx-auto border border-indigo-500/30 text-left space-y-6 shadow-2xl">
+      <div id="result-icon-box" class="w-20 h-20 rounded-full mx-auto flex items-center justify-center border-4"></div>
+      <div class="text-center">
+        <h2 id="result-passed-text" class="text-2xl font-extrabold text-white"></h2>
+        <p class="text-xs text-slate-400 mt-1">{{ exam.title }}</p>
+      </div>
+
+      <div class="grid grid-cols-3 gap-4 py-4 bg-slate-900/60 rounded-2xl border border-slate-800 text-center">
+        <div>
+          <p class="text-[10px] font-semibold text-slate-400 uppercase">Total Marks</p>
+          <p id="result-total-marks" class="text-2xl font-extrabold text-white mt-1"></p>
+        </div>
+        <div>
+          <p class="text-[10px] font-semibold text-slate-400 uppercase">Obtained Marks</p>
+          <p id="result-obtained-marks" class="text-2xl font-extrabold mt-1 text-cyan-400"></p>
+        </div>
+        <div>
+          <p class="text-[10px] font-semibold text-slate-400 uppercase">Percentage</p>
+          <p id="result-score-text" class="text-2xl font-extrabold mt-1"></p>
+        </div>
+      </div>
+
+      <!-- Performance Summary -->
+      <div class="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/20 text-xs leading-relaxed text-indigo-200">
+        <p class="font-bold text-white mb-1 flex items-center gap-1.5">
+          <i data-lucide="sparkles" class="w-4 h-4 text-cyan-400"></i> Overall Performance Evaluation:
+        </p>
+        <p id="result-summary-text" class="text-slate-300"></p>
+      </div>
+
+      <!-- Question Breakdown Accordion/List -->
+      <div class="space-y-3 pt-2">
+        <h4 class="font-bold text-white text-xs uppercase tracking-wider">Question Breakdown & AI Feedback</h4>
+        <div id="result-breakdown-list" class="space-y-3 max-h-96 overflow-y-auto pr-1"></div>
+      </div>
+
+      <a href="/study-plans" class="w-full block py-3 text-center rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30">
+        Return to Study Plan
+      </a>
+    </div>
+  </main>
+
+  <!-- Footer Controls -->
+  <footer id="exam-footer" class="glass-panel px-6 py-4 border-t border-slate-800 sticky bottom-0 z-30 flex items-center justify-between max-w-4xl mx-auto w-full">
+    <button id="prev-q-btn" onclick="prevQuestion()" disabled class="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-2 disabled:opacity-40">
+      <i data-lucide="arrow-left" class="w-4 h-4"></i> Previous
+    </button>
+
+    <button id="next-q-btn" onclick="nextQuestion()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-2">
+      Next <i data-lucide="arrow-right" class="w-4 h-4"></i>
+    </button>
+
+    <button id="submit-exam-btn" onclick="submitExamAttempt()" class="hidden px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-600/30">
+      <i data-lucide="send" class="w-4 h-4"></i> Submit Exam Paper
+    </button>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script>
+    const examData = {{ exam | tojson }};
+    const questionsData = {{ questions | tojson }};
+    const attemptData = {{ attempt | tojson }};
+
+    let currentIdx = 0;
+    let selectedAnswers = {};
+    let timeLeftSecs = 0;
+    let timerInterval = null;
+    let hasStartedExam = false;
+    let isExamSubmitted = false;
+
+    function parseUTCDate(dateStr) {
+      if (!dateStr) return new Date();
+      if (typeof dateStr === 'number') return new Date(dateStr);
+      let s = dateStr.toString().trim();
+      if (!s.endsWith('Z') && !s.includes('+') && !/[+-]\d{2}:?\d{2}$/.test(s)) {
+        s = s.replace(' ', 'T') + 'Z';
+      }
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? new Date() : d;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const totalSecs = (examData.duration_minutes || 30) * 60;
+      const startedMs = parseUTCDate(attemptData.started_at).getTime();
+      const nowMs = new Date().getTime();
+      let elapsedSecs = Math.floor((nowMs - startedMs) / 1000);
+
+      if (isNaN(elapsedSecs) || elapsedSecs < 0 || elapsedSecs >= totalSecs) {
+        elapsedSecs = 0;
+      }
+
+      timeLeftSecs = Math.max(10, totalSecs - elapsedSecs);
+      
+      const m = Math.floor(timeLeftSecs / 60);
+      const s = timeLeftSecs % 60;
+      const timerEl = document.getElementById('exam-timer-text');
+      if (timerEl) timerEl.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+      renderQuestion(0);
+      setupFullscreenListeners();
+    });
+
+    function setupFullscreenListeners() {
+      const handleFsChange = () => {
+        const inFs = !!document.fullscreenElement;
+        const pauseModal = document.getElementById('fullscreen-pause-modal');
+        if (hasStartedExam && !isExamSubmitted) {
+          if (!inFs) {
+            if (pauseModal) pauseModal.classList.remove('hidden');
+          } else {
+            if (pauseModal) pauseModal.classList.add('hidden');
+          }
+        }
+      };
+
+      document.addEventListener('fullscreenchange', handleFsChange);
+      document.addEventListener('webkitfullscreenchange', handleFsChange);
+      document.addEventListener('mozfullscreenchange', handleFsChange);
+      document.addEventListener('MSFullscreenChange', handleFsChange);
+    }
+
+    async function enterFullscreenAndStart() {
+      const errBox = document.getElementById('fullscreen-error-msg');
+      const errText = document.getElementById('fullscreen-error-text');
+      if (errBox) errBox.classList.add('hidden');
+
+      try {
+        if (!document.fullscreenElement) {
+          if (document.documentElement.requestFullscreen) {
+            await document.documentElement.requestFullscreen();
+          } else if (document.documentElement.webkitRequestFullscreen) {
+            await document.documentElement.webkitRequestFullscreen();
+          } else if (document.documentElement.msRequestFullscreen) {
+            await document.documentElement.msRequestFullscreen();
+          }
+        }
+
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+          const startModal = document.getElementById('fullscreen-start-modal');
+          if (startModal) startModal.classList.add('hidden');
+
+          hasStartedExam = true;
+          startTimer();
+        } else {
+          if (errBox && errText) {
+            errText.innerText = 'Fullscreen mode could not be activated. Please enable browser fullscreen permissions and try again.';
+            errBox.classList.remove('hidden');
+          }
+        }
+      } catch (err) {
+        console.warn('Fullscreen request failed or refused:', err);
+        if (errBox && errText) {
+          errText.innerText = 'Fullscreen permission was refused by the browser. Please allow fullscreen mode to begin the exam.';
+          errBox.classList.remove('hidden');
+        }
+      }
+    }
+
+    async function returnToFullscreen() {
+      try {
+        if (!document.fullscreenElement) {
+          await document.documentElement.requestFullscreen();
+        }
+        const pauseModal = document.getElementById('fullscreen-pause-modal');
+        if (pauseModal) pauseModal.classList.add('hidden');
+      } catch (err) {
+        console.warn('Return to fullscreen failed:', err);
+      }
+    }
+
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (timeLeftSecs <= 0) {
+          clearInterval(timerInterval);
+          submitExamAttempt();
+          return;
+        }
+        timeLeftSecs--;
+        const m = Math.floor(timeLeftSecs / 60);
+        const s = timeLeftSecs % 60;
+        const timerEl = document.getElementById('exam-timer-text');
+        if (timerEl) {
+          timerEl.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+      }, 1000);
+    }
+
+    function updateTextInput(qId, val) {
+      selectedAnswers[qId] = val;
+      const btn = document.getElementById(`q-nav-${currentIdx}`);
+      if (btn) {
+        if (val && val.trim()) {
+          btn.className = 'w-9 h-9 rounded-xl font-bold text-xs shrink-0 transition-all bg-emerald-600/30 text-emerald-300 border border-emerald-500/40';
+        } else {
+          btn.className = 'w-9 h-9 rounded-xl font-bold text-xs shrink-0 transition-all bg-slate-900 border border-slate-800 text-slate-400 hover:bg-slate-800';
+        }
+      }
+    }
+
+    function renderQuestion(idx) {
+      currentIdx = idx;
+      const q = questionsData[idx];
+      const card = document.getElementById('active-question-card');
+
+      if (!q || !card) return;
+
+      for (let i = 0; i < questionsData.length; i++) {
+        const btn = document.getElementById(`q-nav-${i}`);
+        if (!btn) continue;
+        const ans = selectedAnswers[questionsData[i].id];
+        if (i === idx) {
+          btn.className = 'w-9 h-9 rounded-xl font-bold text-xs shrink-0 transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-600/30';
+        } else if (ans && ans.trim()) {
+          btn.className = 'w-9 h-9 rounded-xl font-bold text-xs shrink-0 transition-all bg-emerald-600/30 text-emerald-300 border border-emerald-500/40';
+        } else {
+          btn.className = 'w-9 h-9 rounded-xl font-bold text-xs shrink-0 transition-all bg-slate-900 border border-slate-800 text-slate-400 hover:bg-slate-800';
+        }
+      }
+
+      let inputHtml = '';
+      const currentAns = selectedAnswers[q.id] || '';
+
+      if (q.question_type === 'MCQ') {
+        inputHtml = `
+          <div class="space-y-3 pt-2">
+            ${renderOption(q, 'A', q.option_a)}
+            ${renderOption(q, 'B', q.option_b)}
+            ${renderOption(q, 'C', q.option_c)}
+            ${renderOption(q, 'D', q.option_d)}
+          </div>
+        `;
+      } else if (q.question_type === 'DESCRIPTIVE') {
+        inputHtml = `
+          <div class="space-y-2 pt-2">
+            <label class="block text-xs font-semibold text-slate-300">Your Detailed Explanation / Technical Answer:</label>
+            <textarea rows="6" oninput="updateTextInput('${q.id}', this.value)" placeholder="Type your detailed explanation here based on the lesson content..." class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-indigo-500 font-sans text-xs leading-relaxed shadow-inner">${currentAns}</textarea>
+          </div>
+        `;
+      } else if (q.question_type === 'One Word') {
+        inputHtml = `
+          <div class="space-y-2 pt-2">
+            <label class="block text-xs font-semibold text-slate-300">One Word Technical Answer:</label>
+            <input type="text" oninput="updateTextInput('${q.id}', this.value)" value="${currentAns}" placeholder="Type your one-word answer..." class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-indigo-500 font-sans text-xs shadow-inner">
+          </div>
+        `;
+      } else { // FillBlank
+        inputHtml = `
+          <div class="space-y-2 pt-2">
+            <label class="block text-xs font-semibold text-slate-300">Fill in the Blank Answer:</label>
+            <input type="text" oninput="updateTextInput('${q.id}', this.value)" value="${currentAns}" placeholder="Type the missing word/phrase here..." class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-indigo-500 font-sans text-xs shadow-inner">
+          </div>
+        `;
+      }
+
+      card.innerHTML = `
+        <div class="flex items-center justify-between border-b border-slate-800/80 pb-4">
+          <span class="text-xs font-semibold text-indigo-400 uppercase tracking-wider">
+            Question ${idx + 1} of ${questionsData.length} • (${q.points} Points)
+          </span>
+          <span class="text-xs font-bold px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">${q.question_type}</span>
+        </div>
+        <h3 class="text-base sm:text-lg font-bold text-white leading-relaxed">${q.question_text}</h3>
+        ${inputHtml}
+      `;
+
+      document.getElementById('prev-q-btn').disabled = (idx === 0);
+      if (idx === questionsData.length - 1) {
+        document.getElementById('next-q-btn').classList.add('hidden');
+        document.getElementById('submit-exam-btn').classList.remove('hidden');
+      } else {
+        document.getElementById('next-q-btn').classList.remove('hidden');
+        document.getElementById('submit-exam-btn').classList.add('hidden');
+      }
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function renderOption(q, key, text) {
+      if (!text) return '';
+      const isSelected = (selectedAnswers[q.id] === key);
+      return `
+        <button onclick="selectOption('${q.id}', '${key}')" class="w-full p-4 rounded-2xl text-left text-xs font-medium transition-all flex items-center gap-3 ${isSelected ? 'bg-indigo-600/20 border-2 border-indigo-500 text-white shadow-lg' : 'bg-slate-900/80 border border-slate-800 text-slate-300 hover:bg-slate-800'}">
+          <span class="w-6 h-6 rounded-lg bg-slate-800 flex items-center justify-center font-bold text-indigo-400 shrink-0">${key}</span>
+          <span>${text}</span>
+        </button>
+      `;
+    }
+
+    function selectOption(qId, key) {
+      selectedAnswers[qId] = key;
+      renderQuestion(currentIdx);
+    }
+
+    function jumpToQuestion(idx) { renderQuestion(idx); }
+    function prevQuestion() { if (currentIdx > 0) renderQuestion(currentIdx - 1); }
+    function nextQuestion() { if (currentIdx < questionsData.length - 1) renderQuestion(currentIdx + 1); }
+
+    async function submitExamAttempt() {
+      if (timerInterval) clearInterval(timerInterval);
+      isExamSubmitted = true;
+
+      const payload = {
+        answers: Object.entries(selectedAnswers).map(([qId, val]) => ({
+          question_id: qId,
+          selected_option: val
+        }))
+      };
+
+      try {
+        const res = await apiFetch(`/exams/attempts/${attemptData.id}/submit`, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+
+        const result = await res.json();
+        if (!res.ok) {
+          alert(result.detail || 'Error submitting exam paper');
+          return;
+        }
+
+        // Exit browser fullscreen mode upon submit
+        if (document.fullscreenElement) {
+          try {
+            await document.exitFullscreen();
+          } catch (e) {}
+        }
+
+        document.getElementById('active-question-card').classList.add('hidden');
+        document.getElementById('q-nav-buttons').classList.add('hidden');
+        document.getElementById('exam-footer').classList.add('hidden');
+
+        const resCard = document.getElementById('exam-result-card');
+        const iconBox = document.getElementById('result-icon-box');
+        const passedText = document.getElementById('result-passed-text');
+        const scoreText = document.getElementById('result-score-text');
+        const totalMarksText = document.getElementById('result-total-marks');
+        const obtainedMarksText = document.getElementById('result-obtained-marks');
+        const summaryText = document.getElementById('result-summary-text');
+        const breakdownList = document.getElementById('result-breakdown-list');
+
+        if (result.passed) {
+          iconBox.className = 'w-20 h-20 rounded-full mx-auto flex items-center justify-center border-4 bg-emerald-500/20 border-emerald-500 text-emerald-400';
+          iconBox.innerHTML = '<i data-lucide="check-circle-2" class="w-10 h-10"></i>';
+          passedText.innerText = 'Exam Passed Successfully!';
+          scoreText.className = 'text-2xl font-extrabold mt-1 text-emerald-400';
+        } else {
+          iconBox.className = 'w-20 h-20 rounded-full mx-auto flex items-center justify-center border-4 bg-rose-500/20 border-rose-500 text-rose-400';
+          iconBox.innerHTML = '<i data-lucide="x-circle" class="w-10 h-10"></i>';
+          passedText.innerText = 'Evaluation Completed';
+          scoreText.className = 'text-2xl font-extrabold mt-1 text-rose-400';
+        }
+
+        totalMarksText.innerText = `${result.total_possible_marks || '10.0'}`;
+        obtainedMarksText.innerText = `${result.obtained_marks || '0.0'}`;
+        scoreText.innerText = `${result.score_percentage}%`;
+        summaryText.innerText = result.overall_summary || 'Exam evaluation completed.';
+
+        let breakdownHtml = '';
+        if (result.question_breakdown && result.question_breakdown.length > 0) {
+          result.question_breakdown.forEach((b, idx) => {
+            const isGood = b.is_correct;
+            breakdownHtml += `
+              <div class="p-4 rounded-xl bg-slate-900/90 border ${isGood ? 'border-emerald-500/30' : 'border-rose-500/30'} space-y-2 text-xs">
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-white">Q${idx + 1}. (${b.question_type})</span>
+                  <span class="font-bold px-2 py-0.5 rounded text-[10px] ${isGood ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}">
+                    ${b.points_earned} / ${b.max_points} Pts
+                  </span>
+                </div>
+                <p class="text-slate-200 font-semibold">${b.question_text}</p>
+                <div class="text-[11px] space-y-1 bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                  <p><span class="text-slate-400">Your Answer:</span> <strong class="text-white">${b.user_answer}</strong></p>
+                  <p><span class="text-slate-400">Expected Answer/Rubric:</span> <span class="text-emerald-400 font-mono">${b.correct_option}</span></p>
+                  ${b.feedback ? `<p class="text-cyan-300 mt-1 italic border-t border-slate-800/80 pt-1"><i data-lucide="bot" class="w-3 h-3 inline mr-1"></i> AI Feedback: ${b.feedback}</p>` : ''}
+                </div>
+              </div>
+            `;
+          });
+        }
+        breakdownList.innerHTML = breakdownHtml;
+
+        resCard.classList.remove('hidden');
+
+        if (window.lucide) lucide.createIcons();
+      } catch (err) {
+        alert('Error submitting exam paper');
+      }
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      }
+    }
+  </script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

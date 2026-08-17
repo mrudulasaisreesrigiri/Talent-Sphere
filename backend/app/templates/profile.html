@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Profile | Talent Management Platform for Employee Performance and Career Growth{% endblock %}
+{% block header_title %}User Profile & Security{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-3xl mx-auto space-y-6">
+  <!-- User Card -->
+  <div class="glass-panel p-6 rounded-3xl border border-slate-800 flex items-center gap-4">
+    <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 to-cyan-500 flex items-center justify-center text-white font-extrabold text-2xl shadow-xl">
+      {{ current_user.full_name[0] if current_user and current_user.full_name else 'U' }}
+    </div>
+    <div>
+      <h3 class="font-bold text-white text-lg">{{ current_user.full_name if current_user else '' }}</h3>
+      <p class="text-xs text-slate-400">{{ current_user.email if current_user else '' }}</p>
+      <span class="inline-block mt-2 px-2.5 py-0.5 rounded text-[10px] font-bold uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+        Role: {{ current_user.role.value if current_user and current_user.role else '' }}
+      </span>
+    </div>
+  </div>
+
+  <!-- Change Password -->
+  <div class="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
+    <div class="flex items-center gap-2 border-b border-slate-800 pb-3">
+      <i data-lucide="key-round" class="w-5 h-5 text-indigo-400"></i>
+      <h4 class="font-bold text-white text-sm">Security & Password Renewal</h4>
+    </div>
+
+    <form onsubmit="handlePasswordChange(event)" class="space-y-4 text-xs">
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">New Password</label>
+        <input type="password" id="profile-new-pwd" required class="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white">
+      </div>
+      <div>
+        <label class="block text-slate-300 font-semibold mb-1">Confirm New Password</label>
+        <input type="password" id="profile-confirm-pwd" required class="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white">
+      </div>
+      <button type="submit" class="py-3 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold flex items-center justify-center gap-2">
+        Update Password
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function handlePasswordChange(e) {
+    e.preventDefault();
+    const p1 = document.getElementById('profile-new-pwd').value;
+    const p2 = document.getElementById('profile-confirm-pwd').value;
+
+    if (p1 !== p2) {
+      alert('Passwords do not match');
+      return;
+    }
+
+    try {
+      const res = await apiFetch('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ new_password: p1 })
+      });
+      if (!res.ok) {
+        alert('Error updating password');
+        return;
+      }
+      alert('Password updated successfully!');
+      document.getElementById('profile-new-pwd').value = '';
+      document.getElementById('profile-confirm-pwd').value = '';
+    } catch (err) {
+      alert('Error updating password');
+    }
+  }
+</script>
+{% endblock %}

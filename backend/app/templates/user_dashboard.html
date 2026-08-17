@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Employee Hub | Talent Management Platform for Employee Performance and Career Growth{% endblock %}
+{% block header_title %}Employee Performance & Growth Hub{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-7xl mx-auto space-y-6">
+  <!-- Stats Row -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="glass-card rounded-2xl p-5 border border-slate-800 flex items-center justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Upcoming Exams</p>
+        <h3 class="text-2xl font-extrabold text-white tracking-tight">{{ analytics.upcoming_exams }}</h3>
+        <p class="text-[11px] text-slate-400 mt-1">Published & available</p>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+        <i data-lucide="clock" class="w-6 h-6"></i>
+      </div>
+    </div>
+
+    <div class="glass-card rounded-2xl p-5 border border-slate-800 flex items-center justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Completed Exams</p>
+        <h3 class="text-2xl font-extrabold text-white tracking-tight">{{ analytics.completed_exams }}</h3>
+        <p class="text-[11px] text-slate-400 mt-1">Submitted evaluations</p>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+        <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+      </div>
+    </div>
+
+    <div class="glass-card rounded-2xl p-5 border border-slate-800 flex items-center justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Average Score</p>
+        <h3 class="text-2xl font-extrabold text-white tracking-tight">{{ analytics.average_score }}%</h3>
+        <p class="text-[11px] text-slate-400 mt-1">Overall academic score</p>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+        <i data-lucide="trending-up" class="w-6 h-6"></i>
+      </div>
+    </div>
+
+    <div class="glass-card rounded-2xl p-5 border border-slate-800 flex items-center justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Highest Score</p>
+        <h3 class="text-2xl font-extrabold text-white tracking-tight">{{ analytics.highest_score }}%</h3>
+        <p class="text-[11px] text-slate-400 mt-1">Personal record</p>
+      </div>
+      <div class="p-3.5 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+        <i data-lucide="award" class="w-6 h-6"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts & Announcements Row -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 glass-panel p-5 rounded-2xl border border-slate-800">
+      <h3 class="font-bold text-white text-sm mb-4">My Score Progression</h3>
+      {% if analytics.attempt_history and analytics.attempt_history | length > 0 %}
+      <div class="h-64 relative flex items-center justify-center">
+        <canvas id="scoreProgressionChart"></canvas>
+      </div>
+      {% else %}
+      <div class="glass-panel rounded-2xl p-10 text-center flex flex-col items-center justify-center border border-slate-800/80 my-4">
+        <div class="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-400 mb-4 shadow-inner">
+          <i data-lucide="graduation-cap" class="w-8 h-8 text-indigo-400"></i>
+        </div>
+        <h3 class="font-bold text-white text-base mb-1">No Exam History Yet</h3>
+        <p class="text-xs text-slate-400 max-w-sm mb-6 leading-relaxed">Take published exams to track your score progression and academic metrics over time.</p>
+        <a href="/exams" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs inline-flex items-center gap-2">
+          <i data-lucide="graduation-cap" class="w-4 h-4"></i> Go to Exams
+        </a>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Announcements Sidebar Card -->
+    <div class="glass-panel p-5 rounded-2xl border border-slate-800 flex flex-col justify-between">
+      <div>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-bold text-white text-sm flex items-center gap-2">
+            <i data-lucide="megaphone" class="w-4 h-4 text-amber-400"></i> Latest Announcements
+          </h3>
+          <a href="/announcements" class="text-xs text-indigo-400 hover:underline">View All</a>
+        </div>
+
+        {% if announcements | length == 0 %}
+        <p class="text-xs text-slate-500 py-6 text-center">No announcements published</p>
+        {% else %}
+        <div class="space-y-3">
+          {% for a in announcements[:3] %}
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+            <p class="text-xs font-semibold text-white truncate">{{ a.title }}</p>
+            <p class="text-[11px] text-slate-400 mt-1 line-clamp-2">{{ a.content }}</p>
+            <p class="text-[10px] text-slate-500 mt-1">{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '' }}</p>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      <a href="/ai-assistant" class="mt-4 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20">
+        <span>Launch AI Learning Assistant</span>
+        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const userAnalytics = {{ analytics | tojson }};
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const isLight = document.documentElement.classList.contains('light');
+    const labelColor = isLight ? '#475569' : '#94a3b8';
+    const gridColor = isLight ? '#e2e8f0' : 'rgba(255, 255, 255, 0.05)';
+
+    const ctx = document.getElementById('scoreProgressionChart');
+    if (ctx && userAnalytics.attempt_history && userAnalytics.attempt_history.length > 0) {
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: userAnalytics.attempt_history.map(a => a.date),
+          datasets: [{
+            label: 'Score (%)',
+            data: userAnalytics.attempt_history.map(a => a.score),
+            borderColor: '#6366f1',
+            backgroundColor: isLight ? 'rgba(99, 102, 241, 0.08)' : 'rgba(99, 102, 241, 0.1)',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { ticks: { color: labelColor }, grid: { color: gridColor } },
+            y: { min: 0, max: 100, ticks: { color: labelColor }, grid: { color: gridColor } }
+          },
+          plugins: { legend: { labels: { color: labelColor } } }
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}
