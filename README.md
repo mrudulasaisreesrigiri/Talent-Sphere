@@ -109,45 +109,8 @@ Talent-Management-Platform/
 * **Node.js**: v18+ (for Frontend Vite build)
 * **Groq API Key**: Obtain an API key from [Groq Console](https://console.groq.com/)
 
-### Installation & Setup
 
-1. **Clone the Repository**
-   ```bash
-   git clone https://github.com/mrudulasaisreesrigiri/Talent-Sphere.git
-   cd Talent-Sphere
-   ```
-
-2. **Configure Environment Variables**
-   Create a `.env` file in the root directory (or copy `.env.example`):
-   ```env
-   GROQ_API_KEY="your_groq_api_key_here"
-   GROQ_MODEL="openai/gpt-oss-120b"
-   SECRET_KEY="your_jwt_secret_key"
-   DATABASE_URL="sqlite:///talent_sphere_elevate.db"
-   ```
-
-3. **Backend Setup**
-   ```bash
-   # Create and activate virtual environment
-   python -m venv .venv
-   .venv\Scripts\activate       # On Windows
-   # source .venv/bin/activate  # On Linux/macOS
-
-   # Install dependencies
-   pip install -r backend/requirements.txt
-
-   # Initialize Database
-   python backend/scripts/init_db.py
-   ```
-
-4. **Frontend Setup**
-   ```bash
-   cd frontend
-   npm install
-   cd ..
-   ```
-
-5. **Run the Application**
+ **Run the Application**
    Run the unified application launcher:
    ```bash
    python run.py
